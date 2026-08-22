@@ -1,0 +1,48 @@
+site_name: Debt Monitor — Documentación técnica
+site_description: Auditoría de cruce de accesos de casas morosas contra Hikvision / HikCentral Connect
+docs_dir: docs
+theme:
+  name: material
+  language: es
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/weather-night
+        name: Modo oscuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Modo claro
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - toc.integrate
+
+markdown_extensions:
+  - admonition
+  - tables
+  - attr_list
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - toc:
+      permalink: true
+
+nav:
+  - Inicio: index.md
+  - Arquitectura general: arquitectura.md
+  - Hallazgos Hikvision (ISAPI / hccgw): hallazgos-hikvision.md
+  - Fases del proyecto: fases.md
+  - "Fase 1 — Recepción de eventos": fase1-recepcion-eventos.md

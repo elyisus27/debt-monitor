@@ -1,0 +1,22 @@
+# dependencias / build
+node_modules/
+dist/
+.next/
+.turbo/
+
+# credenciales / entorno local — nunca comitear
+.env
+.env.*
+!.env.example
+*.local
+secrets*
+
+# capturas de eventos reales (pueden contener datos de residentes/vehículos)
+tools/**/captures/
+apps/**/captures/
+
+# logs
+*.log
+
+# mkdocs build output
+developersDocs/site/
