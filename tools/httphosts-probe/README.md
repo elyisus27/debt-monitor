@@ -16,8 +16,21 @@ recibe y guarda correctamente:
 - un POST multipart con XML + imagen adjunta (`Event_Type` +
   `Picture_Name`) — formato de `isapi.txt` línea ~1298.
 
-Lo que falta es correr esto **desde una máquina/sesión dentro de la LAN de
-los teclados** (o con tu VPN metiéndote ahí) contra un teclado real.
+✅ **Corrido y validado contra los 2 teclados reales del sitio el
+2026-08-22** (`192.168.100.103` "Salida Morosos", `192.168.100.104`
+"Entrada Morosos"). Ajustes al runbook original, aprendidos en esa corrida
+— ver detalle en
+[`developersDocs/docs/fase1-recepcion-eventos.md`](../../developersDocs/docs/fase1-recepcion-eventos.md):
+
+- El paso 4 (`POST` de alta) falla `methodNotAllowed` en este firmware —
+  usar `PUT` con la lista completa (`GET` primero, siempre).
+- El paso 5 (`.../test`) no está implementado en este firmware — se salta.
+- Si el listener corre en Windows, revisa el firewall: el autotest local
+  puede funcionar aunque el tráfico real de red esté bloqueado.
+- El primer `PUT`/`POST` que activa un slot vuelca **todo el historial
+  interno** del equipo de una sola vez (puede ser miles de eventos) — no
+  es el evento en vivo, es housekeeping normal del equipo. Después de ese
+  volcado, los eventos nuevos sí llegan en tiempo real.
 
 ## 0. Antes que nada: NO usar PUT a ciegas
 

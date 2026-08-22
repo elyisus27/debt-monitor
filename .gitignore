@@ -15,6 +15,12 @@ secrets*
 tools/**/captures/
 apps/**/captures/
 
+# DB local con eventos parseados (mismo motivo: datos reales de residentes)
+tools/**/data/
+apps/**/data/
+*.db
+*.db-journal
+
 # logs
 *.log
 

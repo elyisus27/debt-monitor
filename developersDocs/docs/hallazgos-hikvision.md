@@ -107,15 +107,106 @@ en el sentido teclado→cliente (porque así es como iVMS-4200 recibe sus
 notificaciones), lo cual es buena señal para que el mismo camino sirva
 para nuestro listener.
 
-## Gap conocido: schema de `AccessControllerEvent`
+## Schema real de `AccessControllerEvent` (confirmado contra hardware, 2026-08-22)
 
-`isapi.txt` confirma que existe el tipo de evento `accessControllerEvent`
-(`isapi.txt:21444`) y que hay un nodo `<minorAlarm>` con submodos como
-`0x400,0x401,0x402,0x403` (`isapi.txt:21050-21071`), pero **no trae el
-schema detallado del payload** (qué campo trae el PIN usado, el nombre o
-`employeeNo` de la persona, el nombre de la puerta/domicilio, etc.) — eso
-vive en un manual de AccessControl que no tenemos.
+`isapi.txt` documentaba que existe el tipo de evento `accessControllerEvent`
+(`isapi.txt:21444`) pero **no traía el schema detallado del payload** — eso
+vive en un manual de AccessControl que no tenemos. Se resolvió capturando
+eventos reales contra los 2 teclados del sitio (ver
+[Fase 1](fase1-recepcion-eventos.md) para el runbook). Aunque configuramos
+`parameterFormatType=XML`, el equipo entrega el evento en **JSON** dentro
+del `multipart/form-data` (parte `AccessControllerEvent`,
+`Content-Type: application/json`):
 
-**No hay que adivinarlo**: se resuelve en cuanto tengamos una captura real
-de un evento (ver [Fase 1](fase1-recepcion-eventos.md)) — se inspecciona
-el `.raw` capturado y de ahí se construye el parser real.
+```json
+{
+  "ipAddress": "192.168.100.104",
+  "portNo": 9099,
+  "protocol": "HTTP",
+  "macAddress": "88:de:39:6c:7a:4d",
+  "dateTime": "2026-08-22T09:18:29-06:00",
+  "activePostCount": 1,
+  "eventType": "AccessControllerEvent",
+  "eventState": "active",
+  "eventDescription": "Access Controller Event",
+  "AccessControllerEvent": {
+    "deviceName": "Entrada Morosos",
+    "majorEventType": 5,
+    "subEventType": 179,
+    "reportChannel": 5,
+    "cardReaderKind": 1,
+    "cardReaderNo": 1,
+    "doorNo": 1,
+    "verifyNo": 248,
+    "name": "<casa-unidad, ej. 972-05>",
+    "employeeNoString": "<mismo id sin guion, ej. 97205>",
+    "serialNo": 3712,
+    "currentVerifyMode": "cardOrPw",
+    "currentEvent": true,
+    "frontSerialNo": 3711,
+    "hasRecord": false
+  }
+}
+```
+
+(`name`/`employeeNoString` van redactados arriba — son PII real de
+residentes; ver nota de manejo de datos abajo.)
+
+### `subEventType` observados (majorEventType 5 = "event", el que nos importa)
+
+| subEventType | Significado (inferido) | Trae `name`/`employeeNoString` |
+|---|---|---|
+| **179** | **Verificación exitosa por card/PIN — el evento que buscamos** (identificador `"casa-unidad"`, ej. `972-05`) | Sí |
+| 181 | Verificación exitosa, identidad distinta (nombre de persona, no casa — ej. `"David Ramirez"`, probablemente personal/guardia registrado en el panel, no residente) | Sí |
+| 8 | Código externo/visitante (ej. `"EXTERNA-1002"`) | Sí |
+| 21 | Puerta abierta (sigue casi siempre a un 179) | No |
+| 22 | Puerta cerrada (sigue casi siempre a un 21) | No |
+| 151 | Sin identificar todavía — trae `verifyNo` pero no `name`/`employeeNo` | No |
+| 37 | Sin identificar todavía — acción administrativa/remota, sin identidad | No |
+
+El resto de `majorEventType` (1, 2, 3) son ruido de diagnóstico —
+`videoloss`, pérdida de red, exceso/bajo voltaje, etc. — no relacionados a
+control de acceso.
+
+### ⚠️ `capabilities` no documenta bien lo que el equipo realmente manda
+
+`GET /ISAPI/Event/notification/httpHosts/capabilities` en este firmware
+devuelve un `<minorEvent opt="...">` que **no incluye `0xb3` (179 decimal)**
+— exactamente el código más importante para este proyecto (verificación
+exitosa). Sí incluye `0xb5` (181). Conclusión práctica: **no confiar en
+`capabilities` para armar un filtro de eventos del lado del teclado**
+(`eventMode=list` + `EventList`) — el firmware emite códigos que no declara
+soportar. Mejor dejar `eventMode=all` (red ancha, ya probado que no se
+pierde nada) y filtrar del lado de nuestro propio listener/backend, por
+`eventType=AccessControllerEvent` + presencia de `name`/`employeeNoString`
+en vez de hardcodear el número de `subEventType`.
+
+### Comportamiento de entrega: volcado inicial + push en vivo confirmado
+
+Al hacer el primer `PUT`/`POST` que pasa un slot de `httpHosts` de
+"sin configurar" a configurado, el equipo **vuelca de una sola vez todo su
+historial interno almacenado** (en este sitio: 331 eventos en el teclado de
+salida desde el 13 de julio, 3708+ en el de entrada) como una ráfaga de
+POSTs, sin importar la fecha. Un `PUT` posterior con los mismos valores
+**no** vuelve a disparar el volcado. Después de ese volcado inicial,
+**confirmado que sí llegan eventos nuevos en tiempo real** sin necesidad de
+reconfigurar nada (verificado con un cruce real minutos después de que el
+volcado terminó).
+
+### Dos teclados en el sitio, no uno
+
+`192.168.100.103` = **"Salida Morosos"**, `192.168.100.104` =
+**"Entrada Morosos"** — cada uno con sus propias credenciales/slots
+`httpHosts` independientes (mismas credenciales admin en este sitio, pero
+no asumir que siempre es así). Ambos ya están configurados apuntando al
+mismo listener (`tools/httphosts-probe/listener.js`, puerto 9099) — un solo
+listener recibe de los dos.
+
+### Manejo de datos: esto es PII real de residentes
+
+El volcado histórico trae nombres/identificadores reales de residentes
+(formato `"casa-unidad"` en `name`/`employeeNoString`). Las capturas viven
+en `tools/httphosts-probe/captures/`, cubierto por `.gitignore`
+(`tools/**/captures/`) — nunca se sube a git. El volcado del 2026-08-22 se
+comprimió a `captures/_archive_2026-08-22.zip` (también gitignored) en vez
+de dejar miles de archivos sueltos.

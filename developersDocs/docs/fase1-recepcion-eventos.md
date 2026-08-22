@@ -53,10 +53,25 @@ sequenceDiagram
   sus notificaciones ahí) — buena señal de que el mismo camino de red
   puede servir para nuestro propio listener, sin necesidad de estar
   físicamente en la LAN.
-- ⏳ Pendiente: correr el `POST` de alta + `test` + capturar un evento
-  real (NIP real de prueba) — **se hace en LAN**, ver
-  [plan de repo/entorno](fases.md#fase-1-recepcion-de-eventos-en-progreso)
-  en Fases del proyecto.
+- ✅ **Cerrado 2026-08-22.** Corrido el runbook completo contra los 2
+  teclados reales del sitio (`192.168.100.103` "Salida Morosos",
+  `192.168.100.104` "Entrada Morosos") y capturado un cruce real de NIP en
+  cada uno. Detalle del schema real, los `subEventType` observados y el
+  comportamiento de entrega (volcado inicial + push en vivo confirmado) en
+  [Hallazgos Hikvision](hallazgos-hikvision.md).
+- Hallazgos operativos no anticipados en el runbook original:
+  - El `POST` de alta (paso 4) falla con `methodNotAllowed` en este
+    firmware porque `hostNumber` es fijo (2 slots) y ambos ya "existen"
+    como entradas vacías — hay que usar `PUT` con la lista completa
+    (intencional, con el `GET` previo en mano), no `POST`.
+  - El endpoint `.../test` (paso 5) devuelve `methodNotAllowed` siempre en
+    este firmware, con o sin body — no está implementado pese a estar en
+    el manual general. No bloquea el flujo: se salta directo a la prueba
+    real.
+  - El firewall de Windows de la máquina que corre `listener.js` bloqueaba
+    el tráfico entrante de red aunque el proceso ya estuviera escuchando
+    (autotest local funcionaba, tráfico real del teclado no) — hubo que
+    agregar una regla inbound explícita para el puerto del listener.
 
 ## Regla de seguridad (repetida a propósito)
 
@@ -74,10 +89,10 @@ terminal al momento de ejecutar, o en un archivo local no trackeado
 
 ## Próximos pasos concretos
 
-1. Clonar/copiar el repo en una máquina dentro de la LAN de los teclados
-   (o vía VPN, si se confirma que soporta el tráfico en ambos sentidos).
-2. Seguir `tools/httphosts-probe/README.md` paso a paso: GET → POST alta
-   → POST test → NIP real de prueba.
-3. Traer de vuelta el `.raw` capturado del evento real.
-4. Con eso, pasar a
-   [Fase 2 — Parseo real del evento](fases.md#fase-2-parseo-real-del-evento-modelo-de-datos).
+Fase cerrada — el siguiente paso es
+[Fase 2 — Parseo real del evento](fases.md#fase-2-parseo-real-del-evento-modelo-de-datos):
+construir el parser/modelo de datos a partir del schema real ya confirmado
+en [Hallazgos Hikvision](hallazgos-hikvision.md), filtrando en el backend
+por `eventType=AccessControllerEvent` + presencia de
+`name`/`employeeNoString` (no por `subEventType` fijo, ver por qué en ese
+mismo documento).

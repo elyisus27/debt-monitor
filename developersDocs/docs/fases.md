@@ -10,32 +10,29 @@ una vez el supuesto inicial (hccgw push directo) resultó incorrecto.
 Leer los manuales, confirmar qué API aplica a qué. Cerrada — ver
 [Hallazgos Hikvision](hallazgos-hikvision.md).
 
-## Fase 1 — Recepción de eventos 🔄 en progreso
+## Fase 1 — Recepción de eventos ✅
 
 Probar que se puede enganchar al push HTTP local de un teclado y capturar
-el evento real cuando alguien marca un NIP. Ver el detalle completo en
-[Fase 1 — Recepción de eventos](fase1-recepcion-eventos.md).
+el evento real cuando alguien marca un NIP. Cerrada 2026-08-22 contra los
+2 teclados reales del sitio. Ver el detalle completo en
+[Fase 1 — Recepción de eventos](fase1-recepcion-eventos.md) y el schema
+real confirmado en [Hallazgos Hikvision](hallazgos-hikvision.md).
 
-**Plan de repo/entorno para esta fase**, tal como lo definió el usuario:
-esta sesión de Claude Code corre en una laptop que **no está en la LAN**
-de los teclados/CCTV (solo hay port-forwarding, no confirmado 100%
-suficiente para el flujo completo). Por eso:
+**Nota histórica sobre el entorno de esta fase:** originalmente se asumió
+que la sesión de Claude Code no estaría en la LAN de los teclados/CCTV, así
+que el plan era armar el código localmente (mocks) y correr el runbook real
+desde otra máquina/sesión sí dentro de la LAN. En la práctica, la sesión
+que cerró esta fase **sí tenía acceso directo a la LAN** (con Wi-Fi en el
+mismo segmento `192.168.100.0/24` que los teclados), así que el runbook se
+corrió directo, sin el paso intermedio de subir/bajar el repo.
 
-1. Aquí se deja el código de prueba ya armado y validado localmente
-   (mocks, sin tocar hardware real).
-2. El usuario sube estos cambios a un repositorio propio.
-3. Lo descarga en una máquina/sesión dentro de la LAN real.
-4. Ahí se corre el runbook contra el teclado real y se captura el primer
-   evento real.
-5. Esa captura (`.raw`) se trae de vuelta para construir el parser real
-   de `AccessControllerEvent` (gap documentado en
-   [Hallazgos Hikvision](hallazgos-hikvision.md)).
+## Fase 2 — Parseo real del evento + modelo de datos ✅
 
-## Fase 2 — Parseo real del evento + modelo de datos
-
-Con el `.raw` real en mano: identificar los campos (PIN usado, puerta,
-hora, identificador de persona) y definir el modelo de datos mínimo
-(evento de acceso: casa, PIN, hora, teclado de origen).
+Con el schema real en mano: parser + modelo de datos mínimo (SQLite,
+prototipo en `tools/httphosts-probe/`), validados contra el histórico real
+del sitio (1074 eventos, 102 casas) y contra eventos en vivo. Cerrada
+2026-08-22. Ver el detalle completo en
+[Fase 2 — Parseo + modelo de datos](fase2-parseo-modelo-datos.md).
 
 ## Fase 3 — Disparo de capturas CCTV
 
@@ -69,6 +66,9 @@ de morosos detectados.
 ---
 
 Scaffold del monorepo (`pnpm` + Turborepo, `apps/api` NestJS + `apps/web`
-Next.js + `libs/`) se arma **al cerrar Fase 1**, no antes — para que el
-modelo de datos inicial (Fase 2) esté basado en el payload real del
-evento y no en una suposición.
+Next.js + `libs/`) se arma **al cerrar Fase 2**, no antes — el modelo de
+datos mínimo (`access_events`) ya está validado contra datos reales
+(ver [Fase 2](fase2-parseo-modelo-datos.md)), así que formalizarlo a
+Prisma/NestJS ya no es adivinar. Sigue sin armarse porque Fase 3 (CCTV)
+puede cambiar qué necesita guardar el modelo (referencias a capturas de
+cámara), y no queremos migrar el schema formal dos veces.

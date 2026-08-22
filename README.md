@@ -79,6 +79,10 @@ debt-monitor/
 ## Estado
 
 Ver [`developersDocs/docs/fases.md`](developersDocs/docs/fases.md) —
-resumen corto: Fase 0 (investigación) cerrada, Fase 1 (recepción de
-eventos) en progreso, pendiente correr el runbook contra un teclado real
-desde la LAN.
+resumen corto: Fase 0 (investigación), Fase 1 (recepción de eventos) y
+Fase 2 (parseo + modelo de datos) cerradas — corridas y confirmadas contra
+los 2 teclados reales del sitio (schema real en
+[`hallazgos-hikvision.md`](developersDocs/docs/hallazgos-hikvision.md),
+detalle del parser/modelo en
+[`fase2-parseo-modelo-datos.md`](developersDocs/docs/fase2-parseo-modelo-datos.md)).
+Sigue Fase 3 (disparo de capturas CCTV).

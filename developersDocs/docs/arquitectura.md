@@ -48,6 +48,36 @@ Puntos clave de este diagrama:
   `lpr-caseta` (Python, ya resuelve detección de vehículo + OCR) como
   servicio hermano dentro del mismo repo, invocado por `apps/api`.
 
+## Retención de datos (decidido, pendiente de implementar)
+
+Decisión del usuario (2026-08-22): **ventana rodante de 1 año**, tanto
+para los eventos crudos como para su forma parseada. Aplica en dos
+niveles distintos:
+
+- **Ruido (puerta abrió/cerró, videoloss, excepciones de red/voltaje,
+  etc.)** — no se persiste en absoluto, ni crudo ni parseado. Se descarta
+  en el momento de recibir el `POST`, antes de tocar disco o DB (ver
+  criterio de filtrado — sección "`capabilities` no documenta bien..." en
+  [Hallazgos Hikvision](hallazgos-hikvision.md)).
+- **Cruces reales (`AccessControllerEvent` con identidad)** — sí se
+  guardan, en dos formas que expiran juntas a 1 año:
+  - El registro parseado en la tabla `AccessEvent` (Fase 2) — la fuente
+    de verdad para consultas/auditoría.
+  - El `.raw` original como respaldo — útil para reprocesar si el parser
+    tenía un bug, no para consultar directamente.
+
+**Mecanismo de purga:** un job semanal que borra ambas cosas (fila de DB
++ `.raw` asociado) con más de 1 año de antigüedad. Debe vivir **dentro de
+`apps/api`** cuando exista (cron interno de la app, o cron del sistema
+donde corra) — no es algo que deba depender de una sesión de Claude Code,
+que es efímera.
+
+Mientras no exista `apps/api`, los `.raw` de prueba en
+`tools/httphosts-probe/captures/` no tienen todavía un mecanismo de purga
+automático — se limpian manualmente cuando haga falta (ver
+[Fase 1](fase1-recepcion-eventos.md) por cómo se comprimieron los del
+2026-08-22).
+
 ## Layout del monorepo (decidido, pendiente de scaffold)
 
 Mismo patrón que `vistara` (pnpm + Turborepo, `apps/*` + `libs/*`) por

@@ -46,3 +46,4 @@ nav:
   - Hallazgos Hikvision (ISAPI / hccgw): hallazgos-hikvision.md
   - Fases del proyecto: fases.md
   - "Fase 1 — Recepción de eventos": fase1-recepcion-eventos.md
+  - "Fase 2 — Parseo + modelo de datos": fase2-parseo-modelo-datos.md
