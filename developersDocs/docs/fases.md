@@ -213,8 +213,38 @@ de Fase 4.
 
 ## Fase 5 — Padrón y auditoría
 
-Vehículo↔domicilio↔PIN. Detección de patrones (autos más usados por casa,
-límite según cajones del modelo de casa, cruces a domicilios ajenos).
+**Corrección de diseño (2026-08-23, aclarado por el usuario):** debt-monitor
+**no es dueño del padrón vehículo↔casa** — ese dato vive en Vistara (la
+nube), que ya es la fuente de verdad de morosidad (cambia mes a mes: qué
+casas están en el teclado de morosos varía según quién pagó). Este
+proyecto es un **satélite**: para saber "¿esta placa está autorizada para
+esta casa?" la jugada correcta es **consultar un endpoint en Vistara**
+(pendiente de habilitar allá), no mantener una copia local del padrón que
+se desincronizaría del original.
+
+**Bloqueo de pluma — arquitectura ya decidida, pendiente de implementar:**
+se descarta el pulso directo del teclado a la pluma (`ver hallazgos:
+"panel abre pluma sin autorización externa"` — eso deja de ser cierto).
+El plan real: el teclado deja de disparar la pluma directamente; nosotros,
+al recibir el evento de NIP válido, leemos la placa, consultamos el
+endpoint de Vistara, y si el resultado es favorable, mandamos el `POST`
+que abre la pluma (`192.168.196.1:3000/<ruta pendiente de confirmar>` —
+el endpoint ya existe en algún sitio, falta ubicar la ruta exacta). No se
+ha implementado nada de esto todavía — queda anotado para cuando se
+retome.
+
+**Caso real que motiva esto** (2026-08-03): 3 autos entraron con el mismo
+NIP de una casa morosa — un placa recurrente (probable oficial/staff) y
+otras dos distintas (probables familiares). Sospecha: uno de esos pudo
+ser una visita coleada con el NIP del moroso, no un vehículo autorizado.
+*(Placas reales omitidas aquí a propósito — este archivo se sube a
+GitHub; identifican un vehículo real de forma más directa que un número
+de casa, mismo criterio de cuidado que ya se aplicó con nombres/PIN en
+`hallazgos-hikvision.md`. El caso real completo queda en la sesión, no en
+git.)* El objetivo final es limitar cada NIP a máximo los autos que le
+corresponden según los cajones de su casa (típicamente 2) — la Fase de
+Estadísticas (ver `RESUMEN.md`) es el primer paso visual para detectar
+casos así a simple vista.
 
 ## Fase 6 — Dashboard
 

@@ -32,6 +32,17 @@ export interface Resumen {
   umbral: number;
 }
 
+export interface VehiculoUso {
+  placa: string;
+  veces: number;
+}
+
+export interface UsoPorCasa {
+  casa: string;
+  total: number;
+  vehiculos: VehiculoUso[];
+}
+
 export interface Filtros {
   desde: string;
   hasta: string;

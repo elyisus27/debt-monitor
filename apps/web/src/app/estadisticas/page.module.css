@@ -1,0 +1,76 @@
+.pagina {
+  min-height: 100vh;
+  padding: 16.8px 22.4px 22.4px;
+  display: flex;
+  flex-direction: column;
+  gap: 16.8px;
+}
+
+.encabezado {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 800;
+  font-size: 15px;
+}
+.nav {
+  display: flex;
+  gap: 4px;
+  margin-left: 24px;
+}
+.navLink {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-neutral-500);
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+.navLink:hover {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+}
+.navLinkActivo {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.titulo {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.filtros {
+  background: var(--color-surface);
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--color-neutral-800);
+  padding: 11.2px;
+  display: flex;
+  gap: 11.2px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.campoFecha { width: 150px; }
+
+.tarjetaChart {
+  background: var(--color-surface);
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--color-neutral-800);
+  padding: 16.8px;
+}
+.tarjetaChart h5 { font-size: 16px; margin-bottom: 12px; }
+
+.tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tabla th {
+  text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: rgba(233, 233, 237, 0.6); padding: 6px;
+}
+.tabla td { padding: 6px; border-top: 1px solid var(--color-divider); }
+.tabla .casa { font-family: ui-monospace, monospace; color: var(--color-accent-300); }
+.tabla .vehiculos { font-family: ui-monospace, monospace; font-size: 12px; color: var(--color-neutral-400); }

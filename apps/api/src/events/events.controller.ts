@@ -34,6 +34,11 @@ export class EventsController {
     return this.events.resumen(f);
   }
 
+  @Get('por-casa')
+  porCasa(@Query() query: Record<string, string>) {
+    return this.events.porCasa(query.desde, query.hasta);
+  }
+
   @Patch(':id/placa')
   capturarManual(@Param('id', ParseIntPipe) id: number, @Body('placa') placa: string) {
     return this.events.capturarPlacaManual(id, placa);

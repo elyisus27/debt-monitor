@@ -1,4 +1,4 @@
-import type { Evento, Resumen, Filtros } from './types';
+import type { Evento, Resumen, Filtros, UsoPorCasa } from './types';
 
 function filtrosAQuery(f: Filtros): string {
   const params = new URLSearchParams();
@@ -30,6 +30,13 @@ export async function obtenerUltimoCruce(): Promise<Evento | null> {
   if (!res.ok) throw new Error(`GET /api/cruces (último): HTTP ${res.status}`);
   const data: { eventos: Evento[] } = await res.json();
   return data.eventos[0] ?? null;
+}
+
+export async function obtenerPorCasa(desde: string, hasta: string): Promise<UsoPorCasa[]> {
+  const params = new URLSearchParams({ desde, hasta });
+  const res = await fetch(`/api/cruces/por-casa?${params.toString()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`GET /api/cruces/por-casa: HTTP ${res.status}`);
+  return res.json();
 }
 
 export async function obtenerDispositivos(): Promise<string[]> {

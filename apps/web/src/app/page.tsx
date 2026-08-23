@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import styles from './page.module.css';
 import { FilterBar } from '../components/FilterBar';
 import { KpiGrid } from '../components/KpiGrid';

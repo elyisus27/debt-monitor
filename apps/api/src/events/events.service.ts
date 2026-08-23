@@ -155,6 +155,43 @@ export class EventsService {
     };
   }
 
+  /** Cuántas veces se usó el NIP de cada casa en el rango, y qué vehículos
+   * (placas leídas) se vieron para cada una — para el módulo de Estadísticas
+   * (Fase 5): sirve tal cual el análisis que antes se hacía a mano en Excel
+   * exportando el log del teclado, ahora con el dato extra de qué auto entró. */
+  async porCasa(desde?: string, hasta?: string) {
+    const where: Prisma.AccessEventWhereInput = {};
+    if (desde) where.timestamp = { ...(where.timestamp as object), gte: `${desde}T00:00:00` };
+    if (hasta) where.timestamp = { ...(where.timestamp as object), lte: `${hasta}T23:59:59` };
+
+    const totales = await this.prisma.accessEvent.groupBy({
+      by: ['casaUnidad'],
+      where,
+      _count: { _all: true },
+    });
+
+    const vehiculos = await this.prisma.accessEvent.groupBy({
+      by: ['casaUnidad', 'plateText'],
+      where: { ...where, plateText: { not: null } },
+      _count: { _all: true },
+    });
+
+    const vehiculosPorCasa = new Map<string, { placa: string; veces: number }[]>();
+    for (const v of vehiculos) {
+      const arr = vehiculosPorCasa.get(v.casaUnidad) ?? [];
+      arr.push({ placa: v.plateText!, veces: v._count._all });
+      vehiculosPorCasa.set(v.casaUnidad, arr);
+    }
+
+    return totales
+      .map((t) => ({
+        casa: t.casaUnidad,
+        total: t._count._all,
+        vehiculos: (vehiculosPorCasa.get(t.casaUnidad) ?? []).sort((a, b) => b.veces - a.veces),
+      }))
+      .sort((a, b) => b.total - a.total);
+  }
+
   async capturarPlacaManual(id: number, placa: string) {
     const ev = await this.prisma.accessEvent.findUnique({ where: { id } });
     if (!ev) throw new NotFoundException(`Evento ${id} no existe`);
