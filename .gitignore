@@ -3,6 +3,7 @@ node_modules/
 dist/
 .next/
 .turbo/
+*.tsbuildinfo
 
 # credenciales / entorno local — nunca comitear
 .env

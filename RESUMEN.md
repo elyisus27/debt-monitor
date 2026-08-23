@@ -14,6 +14,28 @@ específico para casas morosas — **no dejar entrar visitas usando el NIP
 de un moroso**: si el auto que se presenta no es de los autorizados de esa
 casa, se detecta.
 
+## Arquitectura formal (2026-08-23) — ya está en producción
+
+Se dejó de parchar el prototipo (`tools/httphosts-probe/`, puro Node sin
+framework) y se armó el sistema de verdad, con tecnología estándar:
+
+- **`apps/api`** (NestJS + base de datos formal vía Prisma) — recibe los
+  eventos del teclado, pide las fotos al DVR, manda a leer la placa, y
+  expone todo por API. Corre en el puerto **9100** (el mismo que ya tenían
+  configurado los teclados — no hubo que tocarlos).
+- **`apps/web`** (Next.js + React) — la pantalla real, con diseño hecho a
+  la medida (a partir de un mockup que armaste en Claude Design):
+  filtros, KPIs, listado, panel de "último cruce", visor de fotos con
+  navegación por teclado (←/→/Esc/↑/↓/Enter), y captura manual de placa
+  cuando el OCR falla. Corre en el puerto **3000**:
+  **`http://192.168.196.9:3000`**
+- **`tools/plate-reader`** (el lector de placas en Python) sigue igual,
+  puerto 9300 — el sistema nuevo también depende de él, no se tocó.
+
+`ingest.js` y `viewer.js` (el prototipo original) ya se borraron — quedan
+reemplazados por lo de arriba. El corte se probó con eventos reales antes
+y después de apagar el sistema viejo, sin perder nada.
+
 ## Reinicio de datos (2026-08-22)
 
 Se borró todo lo que había hasta este punto — el histórico completo
@@ -98,9 +120,13 @@ pasos:
    guarda junto al evento — ya no es un paso manual.
 6. **Pantalla para ver esto** ✅ — visor web en `http://192.168.196.9:9200`,
    ya mostrando la foto real de cada evento (o "sin foto" si es de antes
-   de activar esto, o si la puerta no tiene cámara configurada).
+   de activar esto, o si la puerta no tiene cámara configurada). Rediseño
+   visual (2026-08-23) con la herramienta `/design` — le mostré 3
+   direcciones, elegiste la clara con tarjetas de resumen, y ya quedó
+   conectada a los datos reales (contador de eventos, placas leídas, sin
+   lectura, todo en vivo).
 
-## Fase 4 — Leer la placa automático 🔶 En progreso
+## Fase 4 — Leer la placa automático ✅ Cerrada (automática + manual de respaldo)
 
 **Hallazgo importante primero:** investigamos si se podía "no dejar pasar
 si no se lee la placa" (tu idea, para el caso de luces prendidas o auto
@@ -139,6 +165,11 @@ específicamente para eso), no algo que ya tengamos de `lpr-caseta` ni de
 este pipeline. Si lo quieres, es trabajo aparte a evaluar — no algo que
 esté ya resuelto y solo falte conectar.
 
+**Respaldo cuando el OCR falla:** ya no se queda solo en "sin lectura" —
+el visor de `apps/web` trae un campo para capturarla a mano cuando el
+automático no pudo (mismo caso de las luces). Queda marcada como
+`manual` en el listado, para diferenciarla de una lectura real.
+
 ## Fases que siguen (todavía no arrancan)
 
 - **Padrón y patrones** — cruzar auto↔casa↔NIP, detectar mal uso.
@@ -159,10 +190,13 @@ no está ahí.)
 
 ## Decisiones pendientes de tu parte ahora mismo
 
-1. **En cuanto pase un cruce real con auto visible**, entra al visor y
-   checa la columna "Placa" — esa es la validación real de Fase 4 que
-   falta.
+1. **Pruébalo tú en `http://192.168.196.9:3000`** — sobre todo el visor de
+   fotos (clic en una fila/miniatura, flechas del teclado) y la captura
+   manual de placa — avísame si algo no se ve o comporta bien.
 2. **La idea de bloquear acceso sin placa válida** quedó anotada como
    pendiente de investigar (no descartada) — si quieres que investigue el
    modo de integración distinto que haría falta (vía `hccgw`), dímelo y le
    entro.
+3. ¿Seguimos con **Fase 5** (padrón: qué auto(s) pertenecen a cada casa,
+   detectar visitas coladas) ahora que la base (eventos + fotos + placa)
+   ya está formal y en producción?

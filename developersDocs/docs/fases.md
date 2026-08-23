@@ -229,10 +229,13 @@ de morosos detectados.
 
 ---
 
-Scaffold del monorepo (`pnpm` + Turborepo, `apps/api` NestJS + `apps/web`
-Next.js + `libs/`) se arma **al cerrar Fase 2**, no antes — el modelo de
-datos mínimo (`access_events`) ya está validado contra datos reales
-(ver [Fase 2](fase2-parseo-modelo-datos.md)), así que formalizarlo a
-Prisma/NestJS ya no es adivinar. Sigue sin armarse porque Fase 3 (CCTV)
-puede cambiar qué necesita guardar el modelo (referencias a capturas de
-cámara), y no queremos migrar el schema formal dos veces.
+**Scaffold del monorepo armado 2026-08-23** (`pnpm` + Turborepo, `apps/api`
+NestJS + Prisma, `apps/web` Next.js + React) — se esperó a que Fase 3/4
+estuvieran cerradas y validadas contra datos reales (justo la razón por la
+que se había pospuesto: no migrar el schema formal dos veces). `tools/
+httphosts-probe/ingest.js` y `viewer.js` (el prototipo) se retiraron —
+`apps/api` corre en su lugar, mismo puerto 9100 que ya tenían configurado
+los teclados. Detalle completo en
+[Fase 3 y 4](#fase-3--disparo-de-capturas-cctv-prácticamente-cerrada) de
+este mismo archivo y en `RESUMEN.md`. `tools/plate-reader/` (Python) sigue
+igual, `apps/api` lo sigue usando tal cual.

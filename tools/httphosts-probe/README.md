@@ -1,5 +1,13 @@
 # Probe: push HTTP local de los teclados (ISAPI httpHosts)
 
+> ⚠️ **2026-08-23: `ingest.js` y `viewer.js` se retiraron** — el sistema
+> real de producción ahora es `apps/api` (recibe eventos, captura fotos,
+> pide lectura de placa) + `apps/web` (interfaz). Ver
+> [`RESUMEN.md`](../../RESUMEN.md). `listener.js` (dump crudo) sigue aquí
+> tal cual, como herramienta de depuración de bajo nivel — este README
+> (el runbook de alta del `httpHosts` en el teclado) sigue vigente sin
+> cambios, la configuración del teclado no se tocó.
+
 > Runbook corto para copiar/pegar en terminal. Para la narrativa completa
 > (por qué este mecanismo y no hccgw, diagrama de flujo, qué ya se
 > validó) ver

@@ -1,0 +1,42 @@
+// Schema formal de access_events (Fase 2-4). Mapeado 1:1 sobre la tabla que ya
+// existía en tools/httphosts-probe/data/events.db (@map conserva los nombres de
+// columna originales) + 2 columnas nuevas para el handoff de diseño "Monitor de
+// Cruces" (vehicle_label = "tipo" del contrato, plate_manual = "manual"). NO se
+// agrega "color" -- no hay capacidad de detectarlo, no se inventa el campo.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AccessEvent {
+  id              Int      @id @default(autoincrement())
+  ipAddress       String   @map("ip_address")
+  serialNo        Int?     @map("serial_no")
+  casaUnidad      String   @map("casa_unidad")
+  employeeNo      String   @map("employee_no")
+  timestamp       String
+  puerta          String
+  deviceName      String?  @map("device_name")
+  verifyMode      String?  @map("verify_mode")
+  subEventType    Int?     @map("sub_event_type")
+  doorNo          Int?     @map("door_no")
+  cardReaderNo    Int?     @map("card_reader_no")
+  rawPayload      String?  @map("raw_payload")
+  receivedAt      String   @map("received_at")
+  photoPaths      String?  @map("photo_paths") // JSON string, ver AccessEvent.photos() en el service
+  plateText       String?  @map("plate_text")
+  plateConfidence Float?   @map("plate_confidence") // 0-1 (nuestra escala interna; la API la expone *100)
+  plateReason     String?  @map("plate_reason")
+  vehicleLabel    String?  @map("vehicle_label") // "tipo" del contrato de diseño (car/truck/bus/motorcycle)
+  plateManual     Boolean  @default(false) @map("plate_manual") // "manual" del contrato -- true tras un PATCH
+
+  @@unique([ipAddress, serialNo])
+  @@index([casaUnidad])
+  @@index([timestamp])
+  @@map("access_events")
+}
