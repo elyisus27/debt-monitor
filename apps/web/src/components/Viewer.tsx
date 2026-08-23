@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import styles from '../app/page.module.css';
 import type { Evento } from '../lib/types';
 import { formatFechaHora } from '../lib/dates';
@@ -32,10 +32,31 @@ export function Viewer({
 }: Props) {
   const [captura, setCaptura] = useState('');
   const [guardando, setGuardando] = useState(false);
+  // Flujo a 2 pasos a propósito: clic en "Capturar" ANTES de que el input
+  // tome foco. Con autoFocus inmediato, abrir el visor en un evento sin
+  // placa metía el foco al input de una y las flechas ←/→ dejaban de
+  // navegar (el listener global las ignora con foco en un campo) -- justo
+  // cuando más se quieren usar, para pasar rápido entre fotos/eventos.
+  const [capturando, setCapturando] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const foto = evento.fotos[fotoIndex];
   const { hora, fecha } = formatFechaHora(evento.timestamp);
   const sinLectura = !evento.placa;
+  // Solo tiene sentido capturar a mano viendo la foto de placas -- en
+  // cualquier otro canal no hay nada que leer.
+  const enCanalPlacas = foto?.etiqueta === 'Placas';
+
+  // Salir de "modo captura" al cambiar de foto/evento -- no dejar el input
+  // enfocado (y las flechas bloqueadas) si el usuario navega a otra parte.
+  useEffect(() => {
+    setCapturando(false);
+    setCaptura('');
+  }, [evento.id, fotoIndex]);
+
+  useEffect(() => {
+    if (capturando) inputRef.current?.focus();
+  }, [capturando]);
 
   const guardar = async () => {
     if (!captura.trim() || guardando) return;
@@ -43,6 +64,7 @@ export function Viewer({
     try {
       await onGuardarPlaca(captura.trim());
       setCaptura('');
+      setCapturando(false);
     } finally {
       setGuardando(false);
     }
@@ -112,27 +134,36 @@ export function Viewer({
           <span className={styles.visorPosicion}>{posicionTexto}</span>
         </div>
 
-        {sinLectura && (
+        {sinLectura && enCanalPlacas && (
           <div className={styles.capturaManual}>
-            <div className={styles.capturaFila}>
-              <input
-                type="text"
-                className={`input ${styles.capturaInput}`}
-                placeholder="ABC-12-34"
-                value={captura}
-                onChange={(e) => setCaptura(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') guardar();
-                }}
-                autoFocus
-              />
-              <button type="button" className={styles.capturaBoton} onClick={guardar} disabled={guardando}>
-                Guardar placa
+            {capturando ? (
+              <>
+                <div className={styles.capturaFila}>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    className={`input ${styles.capturaInput}`}
+                    placeholder="ABC-12-34"
+                    value={captura}
+                    onChange={(e) => setCaptura(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') guardar();
+                      // Esc: el listener global del visor ya lo cierra completo
+                      // (mismo criterio del diseño original -- funciona con foco
+                      // en un input), no hace falta manejarlo aquí aparte.
+                    }}
+                  />
+                  <button type="button" className={styles.capturaBoton} onClick={guardar} disabled={guardando}>
+                    Guardar placa
+                  </button>
+                </div>
+                <p className={styles.capturaNota}>Escribe la placa tal como se ve en la foto y presiona Enter.</p>
+              </>
+            ) : (
+              <button type="button" className={styles.capturaBoton} onClick={() => setCapturando(true)}>
+                Capturar placa a mano
               </button>
-            </div>
-            <p className={styles.capturaNota}>
-              El OCR no leyó esta placa — captúrala desde el canal 2 y queda marcada como manual.
-            </p>
+            )}
           </div>
         )}
       </div>
