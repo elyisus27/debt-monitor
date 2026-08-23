@@ -163,6 +163,27 @@ export default function Pagina() {
           <div className={styles.kicker}>Control de acceso · Hikvision ANPR</div>
           <h1 className={styles.titulo}>Cruces de caseta</h1>
         </div>
+        <nav style={{ display: 'flex', gap: 4 }}>
+          <Link
+            href="/"
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'var(--color-accent)',
+              background: 'color-mix(in srgb, var(--color-accent) 12%, transparent)',
+              padding: '6px 12px',
+              borderRadius: 6,
+            }}
+          >
+            Cruces
+          </Link>
+          <Link
+            href="/estadisticas"
+            style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-neutral-500)', padding: '6px 12px', borderRadius: 6 }}
+          >
+            Estadísticas
+          </Link>
+        </nav>
         <div className={styles.encabezadoDer}>
           <span className={styles.punto} />
           en vivo
