@@ -39,6 +39,10 @@ export function Viewer({
   // cuando más se quieren usar, para pasar rápido entre fotos/eventos.
   const [capturando, setCapturando] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Zoom: clic en la foto acerca 2.4x centrado en el punto donde se dio
+  // clic (útil para leer una placa chica); clic de nuevo regresa a normal.
+  const [zoom, setZoom] = useState(false);
+  const [zoomOrigen, setZoomOrigen] = useState('50% 50%');
 
   const foto = evento.fotos[fotoIndex];
   const { hora, fecha } = formatFechaHora(evento.timestamp);
@@ -47,12 +51,22 @@ export function Viewer({
   // cualquier otro canal no hay nada que leer.
   const enCanalPlacas = foto?.etiqueta === 'Placas';
 
-  // Salir de "modo captura" al cambiar de foto/evento -- no dejar el input
-  // enfocado (y las flechas bloqueadas) si el usuario navega a otra parte.
+  // Salir de "modo captura" y de zoom al cambiar de foto/evento -- no
+  // dejar el input enfocado (y las flechas bloqueadas) ni el zoom puesto
+  // si el usuario navega a otra parte.
   useEffect(() => {
     setCapturando(false);
     setCaptura('');
+    setZoom(false);
   }, [evento.id, fotoIndex]);
+
+  const clicEnFoto = (e: React.MouseEvent<HTMLImageElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setZoomOrigen(`${x}% ${y}%`);
+    setZoom((z) => !z);
+  };
 
   useEffect(() => {
     if (capturando) inputRef.current?.focus();
@@ -97,7 +111,13 @@ export function Viewer({
           <div className={styles.visorMarco}>
             {foto ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={foto.url} alt={foto.etiqueta} />
+              <img
+                src={foto.url}
+                alt={foto.etiqueta}
+                className={zoom ? styles.zoom : ''}
+                style={{ transformOrigin: zoomOrigen }}
+                onClick={clicEnFoto}
+              />
             ) : (
               <div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'var(--color-neutral-600)' }}>
                 Sin foto

@@ -234,7 +234,11 @@
   position: relative; flex: 1; min-width: 0; aspect-ratio: 16 / 9; max-height: 56vh;
   margin-inline: auto; border-radius: 8px; overflow: hidden; background: var(--color-neutral-900);
 }
-.visorMarco img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.visorMarco img {
+  width: 100%; height: 100%; object-fit: contain; display: block;
+  cursor: zoom-in; transition: transform 0.15s ease-out;
+}
+.visorMarco img.zoom { cursor: zoom-out; transform: scale(2.4); }
 .visorMarcoBarra {
   position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 12px;
   display: flex; justify-content: space-between; font-family: ui-monospace, monospace; font-size: 11px; color: #fff;
