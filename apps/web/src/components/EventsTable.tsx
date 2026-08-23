@@ -46,8 +46,8 @@ export function EventsTable({
               <th style={{ width: 92 }}>Sentido</th>
               <th style={{ width: 150 }}>Placa</th>
               <th style={{ width: 78 }}>OCR</th>
-              <th style={{ width: 150 }}>Vehículo</th>
-              <th style={{ width: 200 }}>Canales</th>
+              <th style={{ width: 110 }}>Vehículo</th>
+              <th style={{ width: 420 }}>Canales</th>
               <th>Dispositivo</th>
             </tr>
           </thead>

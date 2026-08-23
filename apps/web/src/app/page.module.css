@@ -1,5 +1,6 @@
 .pagina {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   padding: 16.8px 22.4px 22.4px;
   display: flex;
   flex-direction: column;
@@ -12,6 +13,7 @@
   align-items: baseline;
   flex-wrap: wrap;
   gap: 12px;
+  flex-shrink: 0;
 }
 .kicker {
   font-size: 10px;
@@ -52,6 +54,7 @@
   gap: 11.2px;
   align-items: flex-end;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 .campoFecha { width: 150px; }
 .campoBusqueda { width: 190px; }
@@ -63,7 +66,8 @@
   display: flex;
   gap: 16.8px;
   align-items: stretch;
-  min-height: 260px;
+  height: 128px;
+  flex-shrink: 0;
 }
 
 /* — KPIs — */
@@ -147,6 +151,10 @@
   background: var(--color-surface);
   border-radius: 8px;
   overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .listadoCabecera {
   display: flex;
@@ -154,6 +162,7 @@
   gap: 12px;
   padding: 11.2px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 .listadoCabecera h5 { font-size: 16px; }
 .listadoSubtitulo { font-size: 12px; color: var(--color-neutral-500); }
@@ -165,7 +174,7 @@
   color: var(--color-neutral-600);
 }
 
-.scrollTabla { max-height: 46vh; overflow: auto; }
+.scrollTabla { flex: 1; min-height: 0; overflow: auto; }
 
 .tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
 .tabla thead { position: sticky; top: 0; z-index: 2; background: var(--color-surface); }
@@ -210,9 +219,9 @@
 .colVehiculo { font-size: 12px; color: var(--color-neutral-400); }
 .colDispositivo { font-family: ui-monospace, monospace; font-size: 11px; color: var(--color-neutral-600); }
 
-.canales { display: flex; gap: 4px; }
+.canales { display: flex; gap: 6px; }
 .canalThumb {
-  position: relative; width: 58px; height: 34px; border-radius: 4px; overflow: hidden;
+  position: relative; width: 132px; height: 76px; border-radius: 5px; overflow: hidden;
   box-shadow: 0 0 0 1px var(--color-neutral-900); cursor: zoom-in; background: var(--color-neutral-900);
 }
 .canalThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
