@@ -105,3 +105,39 @@ para mantener consistencia entre los dos proyectos hermanos.
 Este layout todavía no está scaffoldeado — se arma cuando cerremos
 Fase 1 (recepción de eventos) y tengamos claro el shape real del payload
 del evento, para no adivinar el modelo de datos antes de tiempo.
+
+## Operación: los 3 servicios corren como servicio de Windows (2026-08-23)
+
+`apps/api` (9100), `apps/web` (3000) y `tools/plate-reader` (9300) corren
+en producción como servicios de Windows via **NSSM**, mismo patrón que
+`lpr-caseta` (`lpr-ocr`/`lpr-web`/`lpr-stream`). Se hizo el cambio porque
+correrlos a mano (`node dist/main.js`, `next start`, `python service.py`)
+los deja atados al ciclo de vida de la sesión de Claude Code que los
+lanzó — un límite de contexto, un reinicio de sesión, o cualquier evento
+de harness los mata sin que la app tenga ningún bug. Eso pasó de verdad:
+`apps/api` estuvo caído ~50 min sin que nadie se diera cuenta hasta que el
+usuario reportó "no veo cruces nuevos" (2026-08-23).
+
+Nombres de servicio: `debt-api`, `debt-web`, `debt-plate-reader`. Config
+de cada uno (vía `nssm install` + `nssm set`), igual a la de `lpr-ocr`:
+
+| Servicio | Ejecutable | AppParameters | AppDirectory |
+|---|---|---|---|
+| `debt-api` | `node.exe` | `dist\main.js` | `apps\api` (así carga su `.env` propio, `ConfigModule.forRoot()` resuelve relativo a `process.cwd()`) |
+| `debt-web` | `node.exe` | `node_modules\next\dist\bin\next start` | `apps\web` |
+| `debt-plate-reader` | `lpr-caseta\.venv\Scripts\python.exe` | `service.py 9300` | `tools\plate-reader` |
+
+En los 3: `AppExit Default Restart` (Windows lo relanza solo si se cae),
+`Start SERVICE_AUTO_START` (arrancan solos al prender la PC), `ObjectName
+LocalSystem`, logs con rotación en `logs/*.{out,err}.log`
+(`AppRotateFiles 1`, `AppRotateBytes 10485760`).
+
+**Administrarlos:** `nssm start|stop|restart <nombre>`, o
+`Get-Service debt-*` / `Restart-Service debt-api` desde PowerShell. El
+ejecutable de `nssm` en esta máquina está en
+`C:\Users\lares\AppData\Local\Microsoft\WinGet\Links\nssm.exe`.
+
+**Nota sobre `NEXT_PUBLIC_API_URL`:** ese env var se hornea en el build de
+producción de `apps/web` (`next build`), no se lee en runtime — por eso el
+servicio `debt-web` no necesita `AppEnvironmentExtra`, solo correr el
+build ya hecho.

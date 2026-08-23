@@ -36,6 +36,22 @@ framework) y se armó el sistema de verdad, con tecnología estándar:
 reemplazados por lo de arriba. El corte se probó con eventos reales antes
 y después de apagar el sistema viejo, sin perder nada.
 
+## Los 3 servicios corren como servicio de Windows (2026-08-23)
+
+Hasta ahora los 3 procesos (`apps/api`, `apps/web`, `tools/plate-reader`)
+se arrancaban a mano — y cuando eso pasa, están atados a que la sesión de
+Claude Code que los lanzó siga viva: si esa sesión se reinicia o se cae,
+el proceso se muere con ella aunque no tenga nada de malo, y el teclado se
+queda sin quien le conteste (pasó una vez: 9100 se cayó ~50 min y nadie se
+dio cuenta hasta que dijiste que no veías cruces nuevos).
+
+Se pasaron los 3 a servicios reales de Windows con **NSSM** (mismo patrón
+ya usado en el proyecto hermano `lpr-caseta`, servicios `lpr-ocr`/`lpr-web`/
+`lpr-stream`): `debt-api`, `debt-web`, `debt-plate-reader`. Arrancan solos
+al prender la computadora, y si el proceso se cae por lo que sea, Windows
+lo vuelve a levantar solo — ya no dependen de que una sesión de Claude
+Code siga abierta. Logs con rotación en `logs/`.
+
 ## Reinicio de datos (2026-08-22)
 
 Se borró todo lo que había hasta este punto — el histórico completo
