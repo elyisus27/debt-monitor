@@ -256,17 +256,28 @@
 .visorPista { font-family: ui-monospace, monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-neutral-600); }
 .visorPosicion { margin-left: auto; font-size: 12px; color: var(--color-neutral-500); }
 
-.capturaManual {
-  background: var(--color-alert-900); box-shadow: 0 0 0 1px var(--color-alert-800);
-  border-radius: 8px; padding: 11.2px; display: flex; flex-direction: column; gap: 8px;
+/* Minimalista y en el MISMO lugar en las 3 fotos del evento a propósito
+   -- antes solo salía viendo el canal de Placas, y aparecer/desaparecer
+   al cambiar de foto movía todo el layout (inconsistente, "se mueve la
+   foto"). Ahora el espacio siempre está, solo cambia el texto del gatillo. */
+.editorPlaca { min-height: 28px; display: flex; align-items: center; }
+.editorTrigger {
+  font-size: 12px; color: var(--color-neutral-500); background: none; border: none;
+  cursor: pointer; padding: 2px 0;
 }
-.capturaFila { display: flex; gap: 8px; }
-.capturaInput {
+.editorTrigger:hover { color: var(--color-accent); }
+.editorFila { display: flex; gap: 6px; align-items: center; width: 100%; }
+.editorInput {
   flex: 1; font-family: ui-monospace, monospace; text-transform: uppercase;
+  height: 28px; padding: 2px 8px; font-size: 13px;
 }
-.capturaBoton {
-  border: 1px solid var(--color-alert); color: var(--color-alert); background: none;
-  border-radius: 8px; padding: 6px 14px; font: inherit; cursor: pointer;
+.editorGuardar {
+  font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--color-divider);
+  background: none; color: var(--color-text); cursor: pointer;
 }
-.capturaBoton:hover { background: color-mix(in srgb, var(--color-alert) 10%, transparent); }
-.capturaNota { font-size: 12px; color: var(--color-neutral-400); }
+.editorGuardar:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.editorGuardar:disabled { opacity: 0.45; cursor: default; }
+.editorCancelar {
+  font-size: 12px; color: var(--color-neutral-500); background: none; border: none; cursor: pointer;
+}
+.editorCancelar:hover { color: var(--color-text); }

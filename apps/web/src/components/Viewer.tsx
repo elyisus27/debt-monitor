@@ -47,18 +47,22 @@ export function Viewer({
   const foto = evento.fotos[fotoIndex];
   const { hora, fecha } = formatFechaHora(evento.timestamp);
   const sinLectura = !evento.placa;
-  // Solo tiene sentido capturar a mano viendo la foto de placas -- en
-  // cualquier otro canal no hay nada que leer.
-  const enCanalPlacas = foto?.etiqueta === 'Placas';
 
-  // Salir de "modo captura" y de zoom al cambiar de foto/evento -- no
-  // dejar el input enfocado (y las flechas bloqueadas) ni el zoom puesto
-  // si el usuario navega a otra parte.
+  // Salir de "modo captura" y de zoom al cambiar de foto -- pero el
+  // disparador (botón/editor) en sí se queda SIEMPRE en el mismo lugar en
+  // las 3 fotos del evento (antes solo salía en la de Placas, y aparecer/
+  // desaparecer movía el layout al cambiar de foto -- inconsistente).
   useEffect(() => {
     setCapturando(false);
-    setCaptura('');
     setZoom(false);
-  }, [evento.id, fotoIndex]);
+  }, [fotoIndex]);
+
+  // Al cambiar de EVENTO sí se resetea el texto -- no arrastrar lo que se
+  // estaba escribiendo para un cruce distinto.
+  useEffect(() => {
+    setCaptura('');
+    setCapturando(false);
+  }, [evento.id]);
 
   const clicEnFoto = (e: React.MouseEvent<HTMLImageElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -72,12 +76,16 @@ export function Viewer({
     if (capturando) inputRef.current?.focus();
   }, [capturando]);
 
+  const empezarEdicion = () => {
+    setCaptura(evento.placa ?? ''); // editar una ya puesta parte de su valor actual, no en blanco
+    setCapturando(true);
+  };
+
   const guardar = async () => {
     if (!captura.trim() || guardando) return;
     setGuardando(true);
     try {
       await onGuardarPlaca(captura.trim());
-      setCaptura('');
       setCapturando(false);
     } finally {
       setGuardando(false);
@@ -154,38 +162,36 @@ export function Viewer({
           <span className={styles.visorPosicion}>{posicionTexto}</span>
         </div>
 
-        {sinLectura && enCanalPlacas && (
-          <div className={styles.capturaManual}>
-            {capturando ? (
-              <>
-                <div className={styles.capturaFila}>
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    className={`input ${styles.capturaInput}`}
-                    placeholder="ABC-12-34"
-                    value={captura}
-                    onChange={(e) => setCaptura(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') guardar();
-                      // Esc: el listener global del visor ya lo cierra completo
-                      // (mismo criterio del diseño original -- funciona con foco
-                      // en un input), no hace falta manejarlo aquí aparte.
-                    }}
-                  />
-                  <button type="button" className={styles.capturaBoton} onClick={guardar} disabled={guardando}>
-                    Guardar placa
-                  </button>
-                </div>
-                <p className={styles.capturaNota}>Escribe la placa tal como se ve en la foto y presiona Enter.</p>
-              </>
-            ) : (
-              <button type="button" className={styles.capturaBoton} onClick={() => setCapturando(true)}>
-                Capturar placa a mano
+        <div className={styles.editorPlaca}>
+          {capturando ? (
+            <div className={styles.editorFila}>
+              <input
+                ref={inputRef}
+                type="text"
+                className={`input ${styles.editorInput}`}
+                placeholder="ABC-12-34"
+                value={captura}
+                onChange={(e) => setCaptura(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') guardar();
+                  // Esc: el listener global del visor ya lo cierra completo
+                  // (mismo criterio del diseño original -- funciona con foco
+                  // en un input), no hace falta manejarlo aquí aparte.
+                }}
+              />
+              <button type="button" className={styles.editorGuardar} onClick={guardar} disabled={guardando}>
+                Guardar
               </button>
-            )}
-          </div>
-        )}
+              <button type="button" className={styles.editorCancelar} onClick={() => setCapturando(false)}>
+                cancelar
+              </button>
+            </div>
+          ) : (
+            <button type="button" className={styles.editorTrigger} onClick={empezarEdicion}>
+              {sinLectura ? '+ Capturar placa a mano' : '✎ Editar placa'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
