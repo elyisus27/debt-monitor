@@ -61,12 +61,13 @@
 .campoDispositivo { width: 180px; }
 .limpiar { margin-left: auto; }
 
-/* — fila combinada: último cruce (izq, domina) + KPIs (der, 2x2) — */
+/* — fila combinada: último cruce (izq) + KPIs (der, 2x2) — altura NO fija:
+   la decide el contenido (el grid 2x2 de KPI necesita más de lo que parece
+   a ojo; una altura inventada lo recorta) */
 .filaSuperior {
   display: flex;
   gap: 16.8px;
   align-items: stretch;
-  height: 128px;
   flex-shrink: 0;
 }
 
@@ -122,6 +123,7 @@
   padding: 11.2px 16.8px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 8px;
 }
 .ultimoMetaCompacta {
@@ -136,14 +138,19 @@
 .ultimoPlaca { font-family: ui-monospace, monospace; font-size: 22px; letter-spacing: 0.04em; color: var(--color-text); }
 .ultimoPlaca.alerta { color: var(--color-alert); }
 .ultimoDispositivo { font-family: ui-monospace, monospace; font-size: 11px; color: var(--color-neutral-600); margin-left: auto; }
-.ultimoFotos { flex: 1; display: flex; gap: 8px; min-height: 0; }
+/* Mismo tamaño fijo que .canalThumb del grid (132x76) -- pidieron
+   explícitamente "mismo tamaño que el resto del grid", nada de estirar. */
+.ultimoFotos { display: flex; gap: 8px; }
 .ultimoFoto {
-  flex: 1; min-width: 0; border-radius: 6px; overflow: hidden; cursor: pointer;
+  width: 132px; height: 76px; flex-shrink: 0; border-radius: 5px; overflow: hidden; cursor: pointer;
   background: var(--color-neutral-900); box-shadow: 0 0 0 1px var(--color-neutral-800);
-  display: flex; flex-direction: column;
+  position: relative;
 }
-.ultimoFoto img { width: 100%; flex: 1; min-height: 0; object-fit: cover; display: block; }
-.ultimoFotoEtiqueta { font-family: ui-monospace, monospace; font-size: 9px; text-transform: uppercase; color: var(--color-neutral-500); padding: 3px 0; text-align: center; }
+.ultimoFoto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ultimoFotoEtiqueta {
+  position: absolute; left: 3px; bottom: 2px; font-family: ui-monospace, monospace;
+  font-size: 8px; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
 .ultimoVacio { font-size: 13px; color: var(--color-neutral-500); }
 
 /* — listado — */
