@@ -287,6 +287,20 @@ basename — con basename el `dry_run` da `match_count:0` falso-negativo).
 Lección fija: cualquier mine sobre este repo apunta solo a `developersDocs/`
 y a archivos `.js` sueltos de `tools/`, nunca a la carpeta completa.
 
+### ⚠️ El equipo puede mandar `multipart/mixed`, no solo `multipart/form-data` (2026-08-23)
+
+Al portar `ingest.js` (Node `http.createServer` crudo, sin filtrar por
+content-type) a `apps/api` (Express, con parsers explícitos por
+content-type), el parser de body crudo quedó configurado solo para
+`multipart/form-data` — el manual (`isapi.txt`) ya documentaba que también
+puede venir como `multipart/mixed`, y en producción real **sí llegó
+así**: 3 eventos reales de residentes se perdieron en silencio (el
+servidor respondía `200 OK` igual, así que **el equipo no reintenta** —
+a diferencia del caso de "listener caído" de abajo, aquí el equipo cree
+que entregó bien). Corregido: el parser ahora captura cualquier body que
+no sea nuestro propio `application/json` (mismo comportamiento sin filtro
+que tenía `ingest.js`), en vez de listar content-types a mano.
+
 ### Corrección (2026-08-22, sesión de Fase 3): el teclado sí retiene eventos sin listener
 
 Se había asumido que un evento en vivo, si no hay nadie escuchando en el
