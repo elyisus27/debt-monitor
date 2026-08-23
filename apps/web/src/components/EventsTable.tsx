@@ -60,13 +60,18 @@ export function EventsTable({
               // no existe, es simplemente "no aplica".
               const sinLectura = ev.sentido === 'entrada' && !ev.placa;
               const bajo = ev.confianza !== null && ev.confianza < umbral;
+              // Fila 0 = el cruce más reciente -- ya no hay panel aparte para eso
+              // (era redundante con esta misma fila), así que esta fila se
+              // distingue con texto más marcado y la leyenda del canal debajo de
+              // la foto en vez de encimada.
+              const esUltimo = i === 0;
 
               return (
                 <tr
                   key={ev.id}
                   className={`${styles.fila} ${sinLectura ? styles.filaSinLectura : ''} ${
                     i === selIndex ? styles.filaSeleccionada : ''
-                  }`}
+                  } ${esUltimo ? styles.filaUltima : ''}`}
                   onClick={() => onAbrirEvento?.(ev, 0)}
                 >
                   <td>
@@ -110,20 +115,35 @@ export function EventsTable({
                   <td className={styles.colVehiculo}>{ev.tipo ?? '—'}</td>
                   <td>
                     <div className={styles.canales}>
-                      {ev.fotos.map((f, i) => (
-                        <div
-                          key={f.canal}
-                          className={styles.canalThumb}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAbrirEvento?.(ev, i);
-                          }}
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={f.url} alt={f.etiqueta} loading="lazy" />
-                          <span className={styles.canalEtiqueta}>CH{f.canal}</span>
-                        </div>
-                      ))}
+                      {ev.fotos.map((f, i) =>
+                        esUltimo ? (
+                          <div
+                            key={f.canal}
+                            className={styles.canalThumbConLeyenda}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAbrirEvento?.(ev, i);
+                            }}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={f.url} alt={f.etiqueta} loading="lazy" />
+                            <span className={styles.canalLeyendaAbajo}>{f.etiqueta}</span>
+                          </div>
+                        ) : (
+                          <div
+                            key={f.canal}
+                            className={styles.canalThumb}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAbrirEvento?.(ev, i);
+                            }}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={f.url} alt={f.etiqueta} loading="lazy" />
+                            <span className={styles.canalEtiqueta}>CH{f.canal}</span>
+                          </div>
+                        ),
+                      )}
                     </div>
                   </td>
                   <td className={styles.colDispositivo}>{ev.dispositivo ?? '—'}</td>

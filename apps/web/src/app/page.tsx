@@ -6,7 +6,6 @@ import { FilterBar } from '../components/FilterBar';
 import { KpiGrid } from '../components/KpiGrid';
 import { EventsTable } from '../components/EventsTable';
 import { Viewer } from '../components/Viewer';
-import { UltimoCruce } from '../components/UltimoCruce';
 import { obtenerCruces, obtenerResumen, obtenerUltimoCruce, capturarPlacaManual } from '../lib/api';
 import { rangoMesActual, tiempoRelativo } from '../lib/dates';
 import { construirSecuenciaPlana, moverEnSecuencia, posicionTexto, type PosicionPlana } from '../lib/flatSequence';
@@ -177,10 +176,7 @@ export default function Pagina() {
 
       <FilterBar filtros={filtros} onChange={setFiltros} />
 
-      <div className={styles.filaSuperior}>
-        <UltimoCruce evento={ultimoCruce} onAbrir={abrirEvento} />
-        <KpiGrid resumen={resumen} onCapturarPendientes={(p) => setFiltros((f) => ({ ...f, ...p }))} />
-      </div>
+      <KpiGrid resumen={resumen} onCapturarPendientes={(p) => setFiltros((f) => ({ ...f, ...p }))} />
 
       <EventsTable
         eventos={eventos}

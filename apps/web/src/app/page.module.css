@@ -61,32 +61,20 @@
 .campoDispositivo { width: 180px; }
 .limpiar { margin-left: auto; }
 
-/* — fila combinada: último cruce (izq) + KPIs (der, 2x2) — altura NO fija:
-   la decide el contenido (el grid 2x2 de KPI necesita más de lo que parece
-   a ojo; una altura inventada lo recorta) */
-.filaSuperior {
-  display: flex;
-  gap: 16.8px;
-  align-items: stretch;
-  flex-shrink: 0;
-}
-
-/* — KPIs — */
+/* — KPIs — de vuelta a fila horizontal (el panel dedicado de "último
+   cruce" se quitó por redundante: la primera fila del listado ya ES el
+   último cruce -- ver .filaUltima en EventsTable) */
 .kpis {
-  flex: 0 0 340px;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 11.2px;
+  flex-shrink: 0;
 }
 .kpiCard {
   background: var(--color-surface);
   border-radius: 8px;
   box-shadow: 0 0 0 1px var(--color-neutral-800);
   padding: 8.4px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
 }
 .kpiCard.alerta {
   box-shadow: 0 0 0 1px var(--color-alert-800);
@@ -111,47 +99,6 @@
   color: rgba(233, 233, 237, 0.5);
   margin-top: 4px;
 }
-
-/* — panel último cruce — fotos grandes dominan, meta en una sola línea
-   compacta arriba (antes: texto grande a la izquierda + hueco muerto al
-   centro + fotos chicas a la derecha -- desperdiciaba espacio) */
-.ultimoCruce {
-  flex: 1;
-  min-width: 0;
-  border-radius: 14px;
-  background: linear-gradient(100deg, #2b2741, #232532 60%);
-  padding: 11.2px 16.8px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 8px;
-}
-.ultimoMetaCompacta {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 13px;
-  color: var(--color-neutral-400);
-}
-.ultimoKicker { font-size: 10px; color: #d2cefd; letter-spacing: 0.08em; text-transform: uppercase; }
-.ultimoPlaca { font-family: ui-monospace, monospace; font-size: 22px; letter-spacing: 0.04em; color: var(--color-text); }
-.ultimoPlaca.alerta { color: var(--color-alert); }
-.ultimoDispositivo { font-family: ui-monospace, monospace; font-size: 11px; color: var(--color-neutral-600); margin-left: auto; }
-/* Mismo tamaño fijo que .canalThumb del grid (132x76) -- pidieron
-   explícitamente "mismo tamaño que el resto del grid", nada de estirar. */
-.ultimoFotos { display: flex; gap: 8px; }
-.ultimoFoto {
-  width: 132px; height: 76px; flex-shrink: 0; border-radius: 5px; overflow: hidden; cursor: pointer;
-  background: var(--color-neutral-900); box-shadow: 0 0 0 1px var(--color-neutral-800);
-  position: relative;
-}
-.ultimoFoto img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.ultimoFotoEtiqueta {
-  position: absolute; left: 3px; bottom: 2px; font-family: ui-monospace, monospace;
-  font-size: 8px; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-}
-.ultimoVacio { font-size: 13px; color: var(--color-neutral-500); }
 
 /* — listado — */
 .listado {
@@ -208,6 +155,9 @@
 .filaSinLectura { background-color: color-mix(in srgb, var(--color-alert) 9%, transparent); }
 .filaSeleccionada { background-color: color-mix(in srgb, var(--color-accent) 12%, transparent); }
 .filaSeleccionada.filaSinLectura { background-color: color-mix(in srgb, var(--color-alert) 18%, transparent); }
+/* Fila más reciente (índice 0) -- reemplaza al panel dedicado que se quitó
+   por redundante: texto más marcado para que se note sin ocupar un row aparte. */
+.filaUltima td { font-weight: 600; }
 
 .colFecha { font-family: ui-monospace, monospace; font-size: 13px; }
 .colFechaRel { font-size: 10px; color: var(--color-neutral-600); margin-top: 1px; }
@@ -235,6 +185,19 @@
 .canalEtiqueta {
   position: absolute; left: 2px; bottom: 1px; font-family: ui-monospace, monospace;
   font-size: 8px; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+/* Variante para la fila más reciente: leyenda completa DEBAJO de la foto
+   (mismo patrón que Fecha/hora: línea principal + línea chica debajo),
+   no encimada -- mismo tamaño de foto que el resto del grid. */
+.canalThumbConLeyenda { width: 132px; cursor: zoom-in; display: flex; flex-direction: column; gap: 2px; }
+.canalThumbConLeyenda img {
+  width: 100%; height: 76px; border-radius: 5px; object-fit: cover; display: block;
+  box-shadow: 0 0 0 1px var(--color-neutral-900); background: var(--color-neutral-900);
+}
+.canalLeyendaAbajo {
+  font-family: ui-monospace, monospace; font-size: 9px; text-transform: uppercase;
+  color: var(--color-neutral-500); text-align: center;
 }
 
 .vacio { text-align: center; font-size: 13px; color: var(--color-neutral-500); padding: 22.4px; }
