@@ -21,8 +21,20 @@ apps/**/data/
 *.db
 *.db-journal
 
+# clips de video del DVR (autos/placas reales de residentes)
+tools/**/clips/
+apps/**/clips/
+
 # logs
 *.log
 
 # mkdocs build output
 developersDocs/site/
+
+# modelo YOLO auto-descargado por ultralytics (tools/plate-reader) -- no versionar,
+# se re-descarga solo la primera vez que corre el servicio
+tools/plate-reader/yolov8n.pt
+
+# Python
+__pycache__/
+*.pyc

@@ -1,5 +1,72 @@
 # Hallazgos Hikvision (ISAPI / hccgw)
 
+## DVR del sitio — confirmado accesible (2026-08-22)
+
+`192.168.100.153`, credenciales admin ya provistas por el usuario (no
+repetir aquí — mismo criterio que las de los teclados: solo en comandos
+directos/variables de entorno, nunca en archivos del repo). Confirmado vía
+ISAPI estándar (mismo manual `isapi.txt` que ya usamos para `httpHosts` —
+sí cubre DVR/video, a diferencia del módulo AccessControl):
+
+- `GET /ISAPI/System/deviceInfo` → `manufacturer: hikvision`,
+  `model: EV4016TURBOD(C)`, `deviceType: DVR`, firmware `V4.70.101`.
+- `GET /ISAPI/System/Video/inputs/channels` → 16 canales, solo 5 activos
+  (`videoInputEnabled: true`), con nombres ya puestos por el sitio:
+
+  | ID canal | Nombre | Candidato a |
+  |---|---|---|
+  | 1 | Entrada Residentes | teclado `192.168.100.104` ("Entrada Morosos") |
+  | 2 | Salida visitas | — |
+  | 3 | Plumas de ingreso | posible vista de placa en entrada |
+  | 4 | Caseta interior | — |
+  | 5 | Salida residentes | teclado `192.168.100.103` ("Salida Morosos") |
+
+  Mapeo canal↔teclado **sin confirmar todavía** — los nombres son
+  candidatos fuertes (coinciden semánticamente con "Entrada/Salida
+  Morosos") pero falta validación visual/física del administrador. Se
+  mandaron snapshots de los 5 canales para esa confirmación.
+
+- `GET /ISAPI/Streaming/channels/<ID>/picture` (`isapi.txt:8979-9013`) —
+  snapshot manual JPEG del stream principal de un canal.
+  `<ID> = número de canal × 100 + 1` (ej. canal 1 → `101`, canal 17 → `1701`).
+  Probado contra los 5 canales analógicos activos + el 17 (IP proxied, ver
+  abajo) — todos responden `200` con JPEG válido.
+
+  ⚠️ **Sin parámetros, la calidad es baja:** confirmado que sin
+  `videoResolutionWidth`/`videoResolutionHeight`, el equipo regresa
+  **704×480** aunque el canal esté configurado a 1080p (`resDesc` de
+  `Video/inputs/channels` ya lo decía, pero el default del snapshot no lo
+  respeta). El manual sí documenta esos dos parámetros opcionales en el
+  mismo endpoint — pasando `?videoResolutionWidth=1920&videoResolutionHeight=1080`
+  se obtiene **1920×1088** real (probado contra los 5 canales + el 17, los
+  6 responden 1920×1088, 4-7x más peso que el default). `ingest.js` ya
+  pide siempre esta resolución explícita.
+
+### DVR híbrido: canales analógicos (1-16) + cámaras IP proxied (17+), APIs distintas
+
+`GET /ISAPI/System/Video/inputs/channels` (usado arriba) solo cubre los 16
+canales **analógicos** — de esos, únicamente 1-5 tienen señal, 6-16
+confirmado con `Device Error` real al pedir snapshot (`statusCode:3`,
+`deviceError`), no solo el flag `videoInputEnabled:false` de la config.
+
+Las cámaras **IP** que este DVR administra (activadas/proxied vía NVR) son
+un universo aparte, expuesto por
+`GET /ISAPI/ContentMgmt/InputProxy/channels` (`isapi.txt:1803-1832`) — en
+este sitio, 7 cámaras IP en los IDs 17-22 (`192.168.100.2`,
+`192.168.100.200-204`), cada una con su propia IP/usuario en
+`sourceInputPortDescriptor`. La fórmula de `<ID>` de streaming/snapshot es
+la misma que para los analógicos (`canal×100+1`) — confirmado con el canal
+17 ("Placas", `192.168.100.2`).
+
+### Mapeo canal DVR ↔ puerta, confirmado por el administrador (2026-08-22)
+
+| Uso | Canales |
+|---|---|
+| **Entrada** | 1 (Entrada Residentes), 3 (Plumas de ingreso), 17 (Placas) |
+| **Salida** | 2 (Salida visitas) |
+| No aplica a morosos/NIP | 4 (Caseta interior, sin uso definido), 5 (Salida residentes — es de las antenas RFID, **otro sistema**, no el de morosos) |
+
+
 Notas de investigación sobre los dos manuales en [`docs/hikvision/`](../../docs/hikvision/)
 (ver también `CLAUDE.md` en la raíz del repo, que explica qué cubre cada
 uno). Este documento existe para no tener que releer los manuales cada vez
@@ -210,3 +277,22 @@ en `tools/httphosts-probe/captures/`, cubierto por `.gitignore`
 (`tools/**/captures/`) — nunca se sube a git. El volcado del 2026-08-22 se
 comprimió a `captures/_archive_2026-08-22.zip` (también gitignored) en vez
 de dejar miles de archivos sueltos.
+
+⚠️ **Esta misma PII también hay que cuidarla fuera del repo.** El 2026-08-22
+un `mempalace_mine` apuntado a `tools/httphosts-probe/` completo (en vez de
+solo a los `.js`) minó sin querer 542 drawers con datos reales de
+residentes hacia MemPalace — `mine` no respeta `.gitignore`. Se detectó y
+se borró en la misma sesión (`delete_by_source` con la ruta absoluta, no el
+basename — con basename el `dry_run` da `match_count:0` falso-negativo).
+Lección fija: cualquier mine sobre este repo apunta solo a `developersDocs/`
+y a archivos `.js` sueltos de `tools/`, nunca a la carpeta completa.
+
+### Corrección (2026-08-22, sesión de Fase 3): el teclado sí retiene eventos sin listener
+
+Se había asumido que un evento en vivo, si no hay nadie escuchando en el
+puerto configurado (proceso caído), se pierde sin más. Falso: observado 2
+veces el mismo día (huecos de ~1h y ~5h, causados por el proceso `ingest.js`
+muriendo solo en background) que, al reconectar el listener, el equipo
+entrega en ráfaga los eventos ocurridos durante el hueco, con su timestamp
+real (no el de reconexión). No se probó el límite de cuánto tiempo/cuántos
+eventos retiene — no asumir que es indefinido.

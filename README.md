@@ -1,10 +1,10 @@
 # debt-monitor
 
 Auditoría de cruce de accesos de casas morosas contra Hikvision/CCTV. Este
-README es solo el **cheatsheet operativo** ("¿cómo prendo esto?"). Para
-arquitectura, hallazgos y roadmap real, ver
-[`developersDocs/`](developersDocs/) (mkdocs) — ver sección de abajo para
-correrlo.
+README es solo el **cheatsheet operativo** ("¿cómo prendo esto?").
+
+- **¿En qué vamos y qué se decidió, en español llano?** → [`RESUMEN.md`](RESUMEN.md)
+- **Detalle técnico profundo** (endpoints, schemas, código) → [`developersDocs/`](developersDocs/) (mkdocs) — ver sección de abajo para correrlo.
 
 ## Entorno
 
