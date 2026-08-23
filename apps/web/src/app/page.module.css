@@ -58,10 +58,20 @@
 .campoDispositivo { width: 180px; }
 .limpiar { margin-left: auto; }
 
+/* — fila combinada: último cruce (izq, domina) + KPIs (der, 2x2) — */
+.filaSuperior {
+  display: flex;
+  gap: 16.8px;
+  align-items: stretch;
+  min-height: 260px;
+}
+
 /* — KPIs — */
 .kpis {
+  flex: 0 0 340px;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
   gap: 11.2px;
 }
 .kpiCard {
@@ -69,6 +79,9 @@
   border-radius: 8px;
   box-shadow: 0 0 0 1px var(--color-neutral-800);
   padding: 8.4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .kpiCard.alerta {
   box-shadow: 0 0 0 1px var(--color-alert-800);
@@ -94,24 +107,39 @@
   margin-top: 4px;
 }
 
-/* — panel último cruce — */
+/* — panel último cruce — fotos grandes dominan, meta en una sola línea
+   compacta arriba (antes: texto grande a la izquierda + hueco muerto al
+   centro + fotos chicas a la derecha -- desperdiciaba espacio) */
 .ultimoCruce {
+  flex: 1;
+  min-width: 0;
   border-radius: 14px;
   background: linear-gradient(100deg, #2b2741, #232532 60%);
   padding: 11.2px 16.8px;
   display: flex;
-  gap: 16.8px;
+  flex-direction: column;
+  gap: 8px;
+}
+.ultimoMetaCompacta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
   flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--color-neutral-400);
 }
 .ultimoKicker { font-size: 10px; color: #d2cefd; letter-spacing: 0.08em; text-transform: uppercase; }
-.ultimoPlaca { font-family: ui-monospace, monospace; font-size: 40px; letter-spacing: 0.04em; color: var(--color-text); margin-top: 2px; }
+.ultimoPlaca { font-family: ui-monospace, monospace; font-size: 22px; letter-spacing: 0.04em; color: var(--color-text); }
 .ultimoPlaca.alerta { color: var(--color-alert); }
-.ultimoMetaFila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--color-neutral-400); margin-top: 6px; }
-.ultimoDispositivo { font-family: ui-monospace, monospace; font-size: 11px; color: var(--color-neutral-600); margin-top: 6px; }
-.ultimoFotos { margin-left: auto; display: flex; gap: 8px; }
-.ultimoFoto { width: 168px; height: 95px; border-radius: 6px; overflow: hidden; cursor: pointer; background: var(--color-neutral-900); box-shadow: 0 0 0 1px var(--color-neutral-800); }
-.ultimoFoto img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.ultimoFotoEtiqueta { font-family: ui-monospace, monospace; font-size: 9px; text-transform: uppercase; color: var(--color-neutral-500); margin-top: 3px; text-align: center; }
+.ultimoDispositivo { font-family: ui-monospace, monospace; font-size: 11px; color: var(--color-neutral-600); margin-left: auto; }
+.ultimoFotos { flex: 1; display: flex; gap: 8px; min-height: 0; }
+.ultimoFoto {
+  flex: 1; min-width: 0; border-radius: 6px; overflow: hidden; cursor: pointer;
+  background: var(--color-neutral-900); box-shadow: 0 0 0 1px var(--color-neutral-800);
+  display: flex; flex-direction: column;
+}
+.ultimoFoto img { width: 100%; flex: 1; min-height: 0; object-fit: cover; display: block; }
+.ultimoFotoEtiqueta { font-family: ui-monospace, monospace; font-size: 9px; text-transform: uppercase; color: var(--color-neutral-500); padding: 3px 0; text-align: center; }
 .ultimoVacio { font-size: 13px; color: var(--color-neutral-500); }
 
 /* — listado — */

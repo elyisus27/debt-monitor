@@ -177,9 +177,10 @@ export default function Pagina() {
 
       <FilterBar filtros={filtros} onChange={setFiltros} />
 
-      <KpiGrid resumen={resumen} onCapturarPendientes={(p) => setFiltros((f) => ({ ...f, ...p }))} />
-
-      <UltimoCruce evento={ultimoCruce} onAbrir={abrirEvento} />
+      <div className={styles.filaSuperior}>
+        <UltimoCruce evento={ultimoCruce} onAbrir={abrirEvento} />
+        <KpiGrid resumen={resumen} onCapturarPendientes={(p) => setFiltros((f) => ({ ...f, ...p }))} />
+      </div>
 
       <EventsTable
         eventos={eventos}

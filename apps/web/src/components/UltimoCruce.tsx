@@ -23,33 +23,27 @@ export function UltimoCruce({ evento, onAbrir }: Props) {
 
   return (
     <div className={styles.ultimoCruce}>
-      <div>
-        <div className={styles.ultimoKicker}>Último cruce registrado</div>
-        <div className={`${styles.ultimoPlaca} ${sinLectura ? styles.alerta : ''}`}>
+      <div className={styles.ultimoMetaCompacta}>
+        <span className={styles.ultimoKicker}>Último cruce</span>
+        <span className={`${styles.ultimoPlaca} ${sinLectura ? styles.alerta : ''}`}>
           {evento.placa ?? 'SIN LECTURA'}
-        </div>
-        <div className={styles.ultimoMetaFila}>
-          <span className="tag tag-accent">Casa {evento.casa}</span>
-          <span>{evento.sentido === 'entrada' ? 'Entrada' : 'Salida'}</span>
-          <span>
-            {hora} · {fecha}
-          </span>
-          {evento.tipo && <span>{evento.tipo}</span>}
-        </div>
-        <div className={styles.ultimoDispositivo}>
-          {evento.dispositivo}
-          {evento.confianza !== null && ` · OCR ${evento.confianza}%`}
-          {evento.manual && ' · manual'}
-        </div>
+        </span>
+        <span className="tag tag-accent">Casa {evento.casa}</span>
+        <span>{evento.sentido === 'entrada' ? 'Entrada' : 'Salida'}</span>
+        <span>
+          {hora} · {fecha}
+        </span>
+        {evento.tipo && <span>{evento.tipo}</span>}
+        {evento.confianza !== null && <span>OCR {evento.confianza}%</span>}
+        {evento.manual && <span className="tag tag-neutral">manual</span>}
+        <span className={styles.ultimoDispositivo}>{evento.dispositivo}</span>
       </div>
 
       <div className={styles.ultimoFotos}>
         {evento.fotos.map((f, i) => (
-          <div key={f.canal}>
-            <div className={styles.ultimoFoto} onClick={() => onAbrir(evento, i)}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={f.url} alt={f.etiqueta} />
-            </div>
+          <div key={f.canal} className={styles.ultimoFoto} onClick={() => onAbrir(evento, i)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={f.url} alt={f.etiqueta} />
             <div className={styles.ultimoFotoEtiqueta}>
               Canal {f.canal} · {f.etiqueta}
             </div>
