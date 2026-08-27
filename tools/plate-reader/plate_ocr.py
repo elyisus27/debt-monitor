@@ -92,6 +92,10 @@ def _load_models():
 
 
 def _normalize(text: str) -> str:
+    """Mayúsculas, solo letras y números -- este es también el formato final
+    que se guarda (2026-08-27: se quitó el guionado tipo "ABC-123-D" que
+    tenía _format_plate; ver normalizarPlaca() en plate.service.ts del lado
+    Node, que aplica el mismo criterio a capturas manuales)."""
     return re.sub(r'[^A-Z0-9]', '', text.upper())
 
 
@@ -102,25 +106,6 @@ def _try_j_u_correction(raw: str) -> str | None:
         return None
     candidate = "J" + raw[1:]
     return candidate if any(p.match(candidate) for p in _PLATE_PATTERNS) else None
-
-
-def _format_plate(raw: str) -> str:
-    t = _normalize(raw)
-    if len(t) == 7 and t[:3].isalpha() and t[3:6].isdigit() and t[6].isalpha():
-        return f"{t[:3]}-{t[3:6]}-{t[6]}"
-    if len(t) == 7 and t[:3].isalpha() and t[3:].isdigit():
-        return f"{t[:3]}-{t[3:5]}-{t[5:]}"
-    if len(t) == 7 and t[:2].isalpha() and t[2:6].isdigit() and t[6].isalpha():
-        return f"{t[:2]}-{t[2:6]}-{t[6]}"
-    if len(t) == 7 and t[:2].isalpha() and t[2:].isdigit():
-        return f"{t[:2]}-{t[2:]}"
-    if len(t) == 6 and t[:3].isalpha() and t[3:].isdigit():
-        return f"{t[:3]}-{t[3:]}"
-    if len(t) == 6 and t[0].isalpha() and t[1:3].isdigit() and t[3:].isalpha():
-        return f"{t[0]}{t[1:3]}-{t[3:]}"
-    if len(t) == 6 and t[:2].isdigit() and t[2].isalpha() and t[3:].isdigit():
-        return f"{t[:2]}{t[2]}-{t[3:]}"
-    return t
 
 
 def _enhance(image: np.ndarray) -> np.ndarray:
@@ -200,14 +185,12 @@ def _read_plate_from_crop(crop: np.ndarray) -> tuple[str, float] | None:
 
     if any(p.match(raw) for p in _PLATE_PATTERNS):
         corrected = _try_j_u_correction(raw)
-        if corrected:
-            return _format_plate(corrected), ocr_conf
-        return _format_plate(raw), ocr_conf
+        return (corrected or raw), ocr_conf
 
     letters = sum(c.isalpha() for c in raw)
     digits = sum(c.isdigit() for c in raw)
     if 6 <= len(raw) <= 8 and letters >= 2 and digits >= 2:
-        return _format_plate(raw), ocr_conf
+        return raw, ocr_conf
     return None
 
 

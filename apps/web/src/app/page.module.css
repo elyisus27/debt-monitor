@@ -336,14 +336,19 @@
   .listadoPista { display: none; }
   .listadoCabecera { padding: 10px; gap: 6px 10px; }
 
-  /* tabla recortada */
+  /* tabla recortada -- 2026-08-27: filas más compactas (letra más chica,
+     menos padding) para que quepa un row completo sin sentirse gigante en
+     pantalla chica; ver también normalizarPlaca (placa sin guiones, cabe
+     más corta). */
   .ocultarEnMovil { display: none; }
-  .tabla { font-size: 13px; }
+  .tabla { font-size: 12px; }
   .tabla th,
-  .tabla td { padding: 8px 6px; width: auto; }
-  .tabla th { font-size: 10px; }
-  .colPlaca { font-size: 15px; }
-  .colFecha { font-size: 12px; }
+  .tabla td { padding: 6px 5px; width: auto; }
+  .tabla th { font-size: 9px; }
+  .colPlaca { font-size: 13px; letter-spacing: 0.01em; }
+  .colFecha { font-size: 11px; }
+  .colFechaRel { font-size: 9px; }
+  .colCasa { font-size: 12px; }
   .botonSinLectura { font-size: 10px; padding: 3px 7px; }
 
   /* sólo la foto de Placas (las 3 no caben y es la que importa); si el

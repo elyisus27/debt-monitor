@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { basename } from 'node:path';
+import { normalizarPlaca } from '../plate/normalizar-placa';
 
 export interface EventoDto {
   id: string;
@@ -52,10 +53,16 @@ export class EventsService {
     if (f.hasta) and.push({ timestamp: { lte: `${f.hasta}T23:59:59` } });
     if (f.q) {
       const q = f.q.toUpperCase();
+      // casaUnidad SÍ usa guion como separador real (p. ej. "1012-03"), no se
+      // toca. plateText en cambio ya no lleva guiones (ver normalizarPlaca) --
+      // si el usuario busca "ABC-123" tal cual no matchearía nada, por eso se
+      // agrega también la variante normalizada.
+      const qPlaca = normalizarPlaca(q);
       and.push({
         OR: [
           { casaUnidad: { contains: q } },
           { plateText: { contains: q } },
+          ...(qPlaca && qPlaca !== q ? [{ plateText: { contains: qPlaca } }] : []),
         ],
       });
     }
@@ -198,7 +205,7 @@ export class EventsService {
 
     const actualizado = await this.prisma.accessEvent.update({
       where: { id },
-      data: { plateText: placa.toUpperCase(), plateManual: true, plateReason: null },
+      data: { plateText: normalizarPlaca(placa), plateManual: true, plateReason: null },
     });
     return this.toEvento(actualizado);
   }

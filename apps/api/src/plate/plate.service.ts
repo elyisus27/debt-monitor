@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { join } from 'node:path';
+import { normalizarPlaca } from './normalizar-placa';
 
 export interface PlateResult {
   plate: string | null;
@@ -36,7 +37,9 @@ export class PlateService {
       }
       const data = await res.json();
       return {
-        plate: data.plate ?? null,
+        // defensa aparte del propio normalizado de plate_ocr.py -- ver
+        // normalizarPlaca()
+        plate: data.plate ? normalizarPlaca(data.plate) : null,
         confidence: data.confidence ?? null,
         vehicleLabel: data.vehicle_label ?? null,
         vehicleConf: data.vehicle_conf ?? null,

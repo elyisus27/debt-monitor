@@ -21,6 +21,7 @@ tools/**/data/
 apps/**/data/
 *.db
 *.db-journal
+*.db.bak-*
 
 # clips de video del DVR (autos/placas reales de residentes)
 tools/**/clips/

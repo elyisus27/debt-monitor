@@ -169,7 +169,7 @@ export function Viewer({
                 ref={inputRef}
                 type="text"
                 className={`input ${styles.editorInput}`}
-                placeholder="ABC-12-34"
+                placeholder="ABC1234"
                 value={captura}
                 onChange={(e) => setCaptura(e.target.value)}
                 onKeyDown={(e) => {
