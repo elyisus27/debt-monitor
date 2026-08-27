@@ -387,17 +387,20 @@
     border-radius: 0;
     padding: 10px;
     gap: 8px;
+    /* 2026-08-27: se probó empujar todo al fondo con margin-top:auto en
+       .visorCuerpo -- el usuario lo probó y no le gustó, quedaba muy abajo
+       y el botón de cerrar se sentía desconectado de la foto. La guía es
+       la foto (el elemento grande): centrar TODO el bloque (cabecera+foto+
+       miniaturas+editor) como una sola unidad hace que cabecera y
+       miniaturas queden pegadas a la foto (son sus vecinos inmediatos en
+       el flujo) y de paso la foto -que es la mayoría de la altura del
+       bloque- termina aprox. centrada en la pantalla. */
+    justify-content: center;
   }
   .visorCabecera { gap: 6px 8px; }
   .visorPlaca { font-size: 16px; }
   .visorMeta { font-size: 11px; }
   .visorCerrar { width: 32px; height: 32px; }
-  /* la cabecera (info, no interactiva salvo cerrar) se queda arriba; el
-     margin-top:auto empuja TODO lo de abajo -- foto, tira de miniaturas,
-     editor de placa -- al fondo de la pantalla en vez de quedar pegado
-     justo debajo de la cabecera con un hueco muerto abajo (donde el pulgar
-     no llega cómodo sosteniendo el teléfono). */
-  .visorCuerpo { margin-top: auto; }
   .visorCuerpo { gap: 4px; }
   .visorFlecha { width: 30px; height: 30px; }
   .visorMarco { max-height: none; aspect-ratio: 4 / 3; }
