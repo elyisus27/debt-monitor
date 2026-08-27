@@ -175,6 +175,7 @@
 .colSentidoEntrada { color: var(--color-accent-300); }
 .colSentidoSalida { color: var(--color-neutral-400); }
 .colPlaca { font-family: ui-monospace, monospace; font-size: 16px; letter-spacing: 0.03em; }
+.etiquetaManual { margin-left: 8px; }
 .botonSinLectura {
   font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: 0.08em;
   color: var(--color-alert); background: none; border: 1px dashed var(--color-alert);
@@ -339,17 +340,31 @@
   /* tabla recortada -- 2026-08-27: filas más compactas (letra más chica,
      menos padding) para que quepa un row completo sin sentirse gigante en
      pantalla chica; ver también normalizarPlaca (placa sin guiones, cabe
-     más corta). */
+     más corta).
+     2026-08-27 (2): con table-layout auto el ancho de cada columna salía
+     del contenido más ancho de esa columna en TODAS las filas -- la placa
+     ganaba de más porque en las filas "manual" el tag empujaba esa columna
+     (dejando hueco vacío en el resto de las filas), y casa quedaba tan
+     angosta que un valor como "1292-13" partía a dos líneas justo en el
+     guion. table-layout: fixed + ancho explícito por columna reparte el
+     espacio a propósito en vez de a lo que salga. */
   .ocultarEnMovil { display: none; }
-  .tabla { font-size: 12px; }
+  .tabla { font-size: 12px; table-layout: fixed; }
   .tabla th,
-  .tabla td { padding: 6px 5px; width: auto; }
-  .tabla th { font-size: 9px; }
+  .tabla td { padding: 6px 4px; }
+  .tabla th { font-size: 9px; letter-spacing: 0.02em; }
+  .thFechaHora { width: 78px; }
+  .thCasa { width: 74px; }
+  .thPlaca { width: 82px; }
+  .thCanales { width: 106px; }
   .colPlaca { font-size: 13px; letter-spacing: 0.01em; }
   .colFecha { font-size: 11px; }
   .colFechaRel { font-size: 9px; }
   .colCasa { font-size: 12px; }
-  .botonSinLectura { font-size: 10px; padding: 3px 7px; }
+  .botonSinLectura { font-size: 9px; padding: 2px 5px; letter-spacing: 0.04em; }
+  /* mismo tag que "Casa X" en el visor, pero ahí sí cabe grande -- aquí
+     compite por espacio con la placa en una columna angosta. */
+  .etiquetaManual { font-size: 9px; padding: 1px 6px; margin-left: 4px; }
 
   /* sólo la foto de Placas (las 3 no caben y es la que importa); si el
      evento no tiene canal de Placas —p. ej. salidas— se muestra la 1ª */

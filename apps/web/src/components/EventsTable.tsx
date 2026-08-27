@@ -106,9 +106,7 @@ export function EventsTable({
                       <span className={styles.colPlaca}>
                         {ev.placa}
                         {ev.manual && (
-                          <span className="tag tag-neutral" style={{ marginLeft: 8 }}>
-                            manual
-                          </span>
+                          <span className={`tag tag-neutral ${styles.etiquetaManual}`}>manual</span>
                         )}
                       </span>
                     )}
