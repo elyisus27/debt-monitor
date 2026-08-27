@@ -75,9 +75,9 @@ export default function Estadisticas() {
         <table className={styles.tabla}>
           <thead>
             <tr>
-              <th>Casa</th>
-              <th>Cruces</th>
-              <th>Vehículos vistos</th>
+              <th className={styles.thCasa}>Casa</th>
+              <th className={styles.thCruces}>Cruces</th>
+              <th className={styles.thVehiculos}>Vehículos vistos</th>
             </tr>
           </thead>
           <tbody>

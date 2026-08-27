@@ -88,7 +88,21 @@
   .tarjetaChart { padding: 12px; }
   .tarjetaChart h5 { font-size: 14px; }
 
-  .tabla { font-size: 12px; }
+  /* 2026-08-27: igual que en el listado de cruces (ver page.module.css de
+     la home) -- con table-layout auto, la columna "vehículos vistos" salía
+     tan ancha como la fila con más placas (dejando hueco vacío en el
+     resto) y "casa" se quedaba tan angosta que un domicilio de 7
+     caracteres ("1372-15") partía a dos líneas justo en el guion.
+     table-layout: fixed + ancho explícito reparte el espacio a propósito:
+     casa siempre en un renglón, cruces lo justo para el número, y el
+     resto para vehículos -- si ahí un domicilio (raro, máx. 1 caso visto)
+     tiene 3 placas y no cabe, esa SÍ puede bajar a un renglón extra, eso
+     está bien. */
+  .tabla { font-size: 12px; table-layout: fixed; }
   .tabla th, .tabla td { padding: 6px 4px; }
+  .tabla th { font-size: 9px; letter-spacing: 0.02em; }
+  .thCasa { width: 62px; }
+  .thCruces { width: 44px; }
+  .tabla .casa { font-size: 11px; }
   .tabla .vehiculos { font-size: 11px; word-break: break-word; }
 }
