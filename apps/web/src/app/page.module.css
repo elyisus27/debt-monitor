@@ -138,6 +138,16 @@
 }
 .tabla td { padding: 5.6px; }
 
+/* Anchos por columna (antes eran style inline en cada <th>; se pasaron a
+   clase para poder anularlos en móvil, donde la tabla se reduce). */
+.thFechaHora { width: 120px; }
+.thCasa { width: 96px; }
+.thSentido { width: 92px; }
+.thPlaca { width: 150px; }
+.thOcr { width: 78px; }
+.thVehiculo { width: 110px; }
+.thCanales { width: 420px; }
+
 .fila {
   cursor: pointer;
   background: linear-gradient(
@@ -281,3 +291,93 @@
   font-size: 12px; color: var(--color-neutral-500); background: none; border: none; cursor: pointer;
 }
 .editorCancelar:hover { color: var(--color-text); }
+
+/* ─────────────────────────────────────────────────────────────────────
+   MÓVIL — vertical, resoluciones chicas (iPhone / Android). Mismo criterio
+   que el proyecto hermano lpr-caseta (su /bitacora): la tabla se queda, se
+   recortan las columnas que no caben ni se buscan en celular. Aquí sólo:
+   Fecha/hora · Casa (domicilio) · Placa · foto de Placas.
+   Además la página deja de ser una sola pantalla fija y pasa a scroll
+   normal, y el visor se abre a pantalla completa.
+   ───────────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .pagina {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+    padding: 12px 12px 20px;
+    gap: 12px;
+  }
+
+  .titulo { font-size: 21px; }
+  .encabezadoDer { margin-left: 0; width: 100%; }
+
+  /* filtros apilados, campos a todo el ancho */
+  .filtros {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px;
+  }
+  .campoFecha,
+  .campoBusqueda,
+  .campoDispositivo { width: 100%; }
+  .filtros :global(.seg) { display: flex; width: 100%; }
+  .filtros :global(.seg-opt) { flex: 1; justify-content: center; padding-inline: 6px; }
+  .limpiar { margin-left: 0; }
+
+  /* KPIs en 2×2 */
+  .kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .kpiCifra { font-size: 26px; }
+
+  /* el listado ya no scrollea aparte: scrollea la página entera */
+  .listado { flex: none; }
+  .scrollTabla { overflow: visible; }
+  .listadoPista { display: none; }
+  .listadoCabecera { padding: 10px; gap: 6px 10px; }
+
+  /* tabla recortada */
+  .ocultarEnMovil { display: none; }
+  .tabla { font-size: 13px; }
+  .tabla th,
+  .tabla td { padding: 8px 6px; width: auto; }
+  .tabla th { font-size: 10px; }
+  .colPlaca { font-size: 15px; }
+  .colFecha { font-size: 12px; }
+  .botonSinLectura { font-size: 10px; padding: 3px 7px; }
+
+  /* sólo la foto de Placas (las 3 no caben y es la que importa); si el
+     evento no tiene canal de Placas —p. ej. salidas— se muestra la 1ª */
+  .canales { gap: 0; }
+  .canales > :not(.canalPlaca) { display: none; }
+  .canales:not(:has(.canalPlaca)) > :first-child { display: block; }
+  .canalThumb { width: 96px; height: 60px; }
+  .canalThumbConLeyenda { width: 96px; }
+  .canalThumbConLeyenda img { height: 60px; }
+
+  /* ── visor a pantalla completa ── */
+  .visorBackdrop { place-items: stretch; }
+  .visorPanel {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    border-radius: 0;
+    padding: 10px;
+    gap: 8px;
+  }
+  .visorCabecera { gap: 6px 8px; }
+  .visorPlaca { font-size: 16px; }
+  .visorMeta { font-size: 11px; }
+  .visorCerrar { width: 32px; height: 32px; }
+  .visorCuerpo { gap: 4px; }
+  .visorFlecha { width: 30px; height: 30px; }
+  .visorMarco { max-height: none; aspect-ratio: 4 / 3; }
+  .visorPie { gap: 8px; row-gap: 6px; }
+  .visorPista { display: none; }
+  .filmTira { overflow-x: auto; max-width: 100%; padding-bottom: 2px; }
+  .filmMini { width: 76px; height: 44px; flex-shrink: 0; }
+  .visorPosicion { margin-left: 0; }
+}

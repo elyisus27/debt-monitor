@@ -98,3 +98,9 @@
   font-style: italic;
   color: var(--color-neutral-600);
 }
+
+@media (max-width: 640px) {
+  .wrap { gap: 16px; }
+  .leyenda { min-width: 0; width: 100%; }
+  .detalle { margin-left: 20px; }
+}

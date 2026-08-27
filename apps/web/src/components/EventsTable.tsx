@@ -41,14 +41,14 @@ export function EventsTable({
         <table className={styles.tabla}>
           <thead>
             <tr>
-              <th style={{ width: 120 }}>Fecha / hora</th>
-              <th style={{ width: 96 }}>Casa</th>
-              <th style={{ width: 92 }}>Sentido</th>
-              <th style={{ width: 150 }}>Placa</th>
-              <th style={{ width: 78 }}>OCR</th>
-              <th style={{ width: 110 }}>Vehículo</th>
-              <th style={{ width: 420 }}>Canales</th>
-              <th>Dispositivo</th>
+              <th className={styles.thFechaHora}>Fecha / hora</th>
+              <th className={styles.thCasa}>Casa</th>
+              <th className={`${styles.thSentido} ${styles.ocultarEnMovil}`}>Sentido</th>
+              <th className={styles.thPlaca}>Placa</th>
+              <th className={`${styles.thOcr} ${styles.ocultarEnMovil}`}>OCR</th>
+              <th className={`${styles.thVehiculo} ${styles.ocultarEnMovil}`}>Vehículo</th>
+              <th className={styles.thCanales}>Canales</th>
+              <th className={styles.ocultarEnMovil}>Dispositivo</th>
             </tr>
           </thead>
           <tbody>
@@ -81,7 +81,11 @@ export function EventsTable({
                     </div>
                   </td>
                   <td className={styles.colCasa}>{ev.casa}</td>
-                  <td className={ev.sentido === 'entrada' ? styles.colSentidoEntrada : styles.colSentidoSalida}>
+                  <td
+                    className={`${styles.ocultarEnMovil} ${
+                      ev.sentido === 'entrada' ? styles.colSentidoEntrada : styles.colSentidoSalida
+                    }`}
+                  >
                     {ev.sentido === 'entrada' ? '↓ entrada' : '↑ salida'}
                   </td>
                   <td>
@@ -109,17 +113,23 @@ export function EventsTable({
                       </span>
                     )}
                   </td>
-                  <td className={`${styles.colOcr} ${bajo ? styles.colOcrBaja : styles.colOcrOk}`}>
+                  <td
+                    className={`${styles.ocultarEnMovil} ${styles.colOcr} ${
+                      bajo ? styles.colOcrBaja : styles.colOcrOk
+                    }`}
+                  >
                     {ev.manual ? 'manual' : ev.confianza !== null ? `${ev.confianza}%` : '—'}
                   </td>
-                  <td className={styles.colVehiculo}>{ev.tipo ?? '—'}</td>
+                  <td className={`${styles.ocultarEnMovil} ${styles.colVehiculo}`}>{ev.tipo ?? '—'}</td>
                   <td>
                     <div className={styles.canales}>
                       {ev.fotos.map((f, i) =>
                         esUltimo ? (
                           <div
                             key={f.canal}
-                            className={styles.canalThumbConLeyenda}
+                            className={`${styles.canalThumbConLeyenda} ${
+                              f.etiqueta === 'Placas' ? styles.canalPlaca : ''
+                            }`}
                             onClick={(e) => {
                               e.stopPropagation();
                               onAbrirEvento?.(ev, i);
@@ -132,7 +142,7 @@ export function EventsTable({
                         ) : (
                           <div
                             key={f.canal}
-                            className={styles.canalThumb}
+                            className={`${styles.canalThumb} ${f.etiqueta === 'Placas' ? styles.canalPlaca : ''}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               onAbrirEvento?.(ev, i);
@@ -146,7 +156,7 @@ export function EventsTable({
                       )}
                     </div>
                   </td>
-                  <td className={styles.colDispositivo}>{ev.dispositivo ?? '—'}</td>
+                  <td className={`${styles.ocultarEnMovil} ${styles.colDispositivo}`}>{ev.dispositivo ?? '—'}</td>
                 </tr>
               );
             })}
