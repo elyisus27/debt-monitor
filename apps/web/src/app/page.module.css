@@ -392,6 +392,12 @@
   .visorPlaca { font-size: 16px; }
   .visorMeta { font-size: 11px; }
   .visorCerrar { width: 32px; height: 32px; }
+  /* la cabecera (info, no interactiva salvo cerrar) se queda arriba; el
+     margin-top:auto empuja TODO lo de abajo -- foto, tira de miniaturas,
+     editor de placa -- al fondo de la pantalla en vez de quedar pegado
+     justo debajo de la cabecera con un hueco muerto abajo (donde el pulgar
+     no llega cómodo sosteniendo el teléfono). */
+  .visorCuerpo { margin-top: auto; }
   .visorCuerpo { gap: 4px; }
   .visorFlecha { width: 30px; height: 30px; }
   .visorMarco { max-height: none; aspect-ratio: 4 / 3; }

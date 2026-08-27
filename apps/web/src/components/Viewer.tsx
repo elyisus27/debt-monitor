@@ -44,6 +44,37 @@ export function Viewer({
   const [zoom, setZoom] = useState(false);
   const [zoomOrigen, setZoomOrigen] = useState('50% 50%');
 
+  // Swipe en la foto (móvil) -- mismo criterio que ← / →: barre TODA la
+  // secuencia plana (fotos de todos los eventos, no solo las 3 del evento
+  // actual), así que dispara los mismos onPrev/onNext de los botones, no
+  // un caso aparte. Solo se escucha touchstart/touchend (nunca touchmove +
+  // preventDefault) para no pelearse con el scroll vertical nativo del
+  // panel ni con el scroll horizontal propio de la tira de miniaturas.
+  const touchInicio = useRef<{ x: number; y: number } | null>(null);
+  const huboSwipe = useRef(false);
+  const UMBRAL_SWIPE_PX = 40;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchInicio.current = { x: t.clientX, y: t.clientY };
+  };
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const inicio = touchInicio.current;
+    touchInicio.current = null;
+    if (!inicio) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - inicio.x;
+    const dy = t.clientY - inicio.y;
+    if (Math.abs(dx) > UMBRAL_SWIPE_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      // marcar que hubo swipe para que el click sintético que sigue al
+      // touchend no dispare el toggle de zoom sobre la foto
+      huboSwipe.current = true;
+      if (dx < 0 && hasNext) onNext(); // izquierda -> siguiente (como →)
+      else if (dx > 0 && hasPrev) onPrev(); // derecha -> anterior (como ←)
+    }
+  };
+
   const foto = evento.fotos[fotoIndex];
   const { hora, fecha } = formatFechaHora(evento.timestamp);
   const sinLectura = !evento.placa;
@@ -65,6 +96,10 @@ export function Viewer({
   }, [evento.id]);
 
   const clicEnFoto = (e: React.MouseEvent<HTMLImageElement>) => {
+    if (huboSwipe.current) {
+      huboSwipe.current = false;
+      return;
+    }
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -116,7 +151,7 @@ export function Viewer({
             ←
           </button>
 
-          <div className={styles.visorMarco}>
+          <div className={styles.visorMarco} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
             {foto ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
