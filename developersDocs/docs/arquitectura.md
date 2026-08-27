@@ -141,3 +141,26 @@ ejecutable de `nssm` en esta máquina está en
 producción de `apps/web` (`next build`), no se lee en runtime — por eso el
 servicio `debt-web` no necesita `AppEnvironmentExtra`, solo correr el
 build ya hecho.
+
+### Desplegar un cambio de frontend (gotcha, incidente 2026-08-27)
+
+`debt-web` corre `next start`, que lee `.next/` **al arrancar** y sirve los
+estáticos (`/_next/static/*`) por ruta desde esa carpeta. Consecuencias:
+
+- Cada cambio en `apps/web/src` son **dos pasos, en orden**: `pnpm exec
+  next build` y **luego** `nssm restart debt-web`. Reiniciar sin buildear
+  no despliega nada.
+- Correr `next dev` (o interrumpir un `next build`) dentro de `apps/web` en
+  la máquina de producción deja `.next/` sin `BUILD_ID` / sin
+  `.next/static/css/`. El servicio viejo sigue vivo pero ya no puede servir
+  los hashes que su HTML pide → **HTTP 400 en todos los CSS/JS**. La página
+  carga como HTML pelón, sin estilos y sin JS, atascada en "Cargando…",
+  idéntico en escritorio y en móvil. Recuperación:
+  `rm -rf .next && pnpm exec next build && nssm restart debt-web`.
+
+Esto pasó de verdad el 2026-08-27: el proceso `debt-web` llevaba desde el
+23-ago (≈10 commits de frontend sin desplegar) y en algún momento `.next/`
+quedó corrupta; el sitio estuvo servido roto ~4 días hasta que el usuario
+reportó "el sitio no me responde ni en formato pc ni en formato celular".
+Verificación post-arreglo: `curl` a `/`, a un par de `/_next/static/*` y a
+`/api/cruces` — los tres deben dar 200, no 400.

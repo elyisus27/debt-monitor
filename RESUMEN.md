@@ -52,6 +52,13 @@ al prender la computadora, y si el proceso se cae por lo que sea, Windows
 lo vuelve a levantar solo — ya no dependen de que una sesión de Claude
 Code siga abierta. Logs con rotación en `logs/`.
 
+**Ojo al desplegar la pantalla (`apps/web`):** publicar un cambio de
+frontend son dos pasos, en orden — `next build` y **luego** `nssm restart
+debt-web` —, nunca solo reiniciar. Y no correr `next dev` en esa carpeta en
+esta máquina: comparte la carpeta del build con el servicio y lo rompe (la
+página queda sin estilos ni interactividad hasta el siguiente `next build`
+limpio). El 27-ago el sitio estuvo servido roto ~4 días por esto.
+
 ## Reinicio de datos (2026-08-22)
 
 Se borró todo lo que había hasta este punto — el histórico completo

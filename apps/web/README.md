@@ -36,3 +36,31 @@ pnpm exec next start
 `NEXT_PUBLIC_API_URL` (`.env.local`, default `http://localhost:9100`) se
 "hornea" en el build — si cambia el puerto/host del API, hay que correr
 `next build` de nuevo, no basta con reiniciar `next start`.
+
+## Desplegar un cambio de frontend (servicio `debt-web`)
+
+En producción `apps/web` corre como servicio de Windows (`debt-web`, NSSM —
+ver `developersDocs/docs/arquitectura.md`). `next start` lee `.next/` **al
+arrancar** y sirve los assets estáticos (`/_next/static/*`) por ruta desde
+esa carpeta. Por eso, cada vez que se toca el frontend son **dos pasos, en
+este orden**:
+
+```powershell
+pnpm exec next build            # regenera .next/ con un BUILD_ID nuevo
+nssm restart debt-web           # el servicio recoge el build nuevo
+```
+
+Reiniciar sin buildear no sirve. Y correr `next dev` o un `next build` a
+medias en esta carpeta deja `.next/` en un estado que el servicio viejo ya
+no puede servir: la página HTML responde 200 pero **todos los CSS/JS dan
+HTTP 400**, y el sitio se ve sin estilos y sin interactividad (atascado en
+"Cargando…") igual en PC que en celular. Recuperación:
+
+```powershell
+Remove-Item -Recurse -Force .next
+pnpm exec next build
+nssm restart debt-web
+```
+
+(Incidente real 2026-08-27: 4 días sirviendo un build roto antes de que se
+notara — "el sitio no me responde ni en formato pc ni en formato celular".)
