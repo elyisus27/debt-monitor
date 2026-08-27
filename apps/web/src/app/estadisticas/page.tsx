@@ -76,7 +76,7 @@ export default function Estadisticas() {
           <thead>
             <tr>
               <th className={styles.thCasa}>Casa</th>
-              <th className={styles.thCruces}>Cruces</th>
+              <th className={styles.thCruces}>×</th>
               <th className={styles.thVehiculos}>Vehículos vistos</th>
             </tr>
           </thead>
@@ -84,7 +84,7 @@ export default function Estadisticas() {
             {datos.map((d) => (
               <tr key={d.casa}>
                 <td className={styles.casa}>{d.casa}</td>
-                <td>{d.total}</td>
+                <td className={styles.cruces}>{d.total}×</td>
                 <td className={styles.vehiculos}>
                   {d.vehiculos.length > 0
                     ? d.vehiculos.map((v) => `${v.placa} (${v.veces}×)`).join('  ·  ')
