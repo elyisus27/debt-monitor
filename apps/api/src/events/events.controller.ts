@@ -15,7 +15,7 @@ export class EventsController {
       sentido: query.sentido as ListaFiltros['sentido'],
       lectura: query.lectura as ListaFiltros['lectura'],
       umbral: query.umbral ? Number(query.umbral) : undefined,
-      cursor: query.cursor,
+      page: query.page ? Number(query.page) : undefined,
       limit: query.limit ? Number(query.limit) : undefined,
     };
     return this.events.listar(f);

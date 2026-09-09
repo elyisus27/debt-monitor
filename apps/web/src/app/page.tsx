@@ -31,6 +31,8 @@ export default function Pagina() {
   }));
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [total, setTotal] = useState(0);
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
   const [resumen, setResumen] = useState<Resumen | null>(null);
   const [cargando, setCargando] = useState(true);
 
@@ -39,12 +41,13 @@ export default function Pagina() {
   const [ultimoCruce, setUltimoCruce] = useState<Evento | null>(null);
   const [, setTick] = useState(0); // fuerza re-render cada 1s para refrescar "hace Xs"
 
-  const cargar = useCallback(async (f: Filtros) => {
+  const cargar = useCallback(async (f: Filtros, p: number) => {
     setCargando(true);
     try {
-      const [listaRes, resumenRes] = await Promise.all([obtenerCruces(f), obtenerResumen(f)]);
+      const [listaRes, resumenRes] = await Promise.all([obtenerCruces(f, p), obtenerResumen(f)]);
       setEventos(listaRes.eventos);
       setTotal(listaRes.total);
+      setTotalPaginas(listaRes.totalPaginas);
       setResumen(resumenRes);
     } catch (err) {
       console.error('Error cargando cruces:', err);
@@ -54,8 +57,15 @@ export default function Pagina() {
   }, []);
 
   useEffect(() => {
-    cargar(filtros);
-  }, [filtros, cargar]);
+    cargar(filtros, pagina);
+  }, [filtros, pagina, cargar]);
+
+  // Cambiar filtros invalida la página en la que se estaba parado (podría
+  // ni existir con el nuevo filtro) -- siempre se vuelve a la 1.
+  const cambiarFiltros = useCallback((f: Filtros) => {
+    setFiltros(f);
+    setPagina(1);
+  }, []);
 
   // Referencias siempre-actuales para el listener de teclado (evita re-registrar
   // el listener en cada render y evita closures viejos sobre `eventos`/`visorPos`).
@@ -122,6 +132,8 @@ export default function Pagina() {
   // evento aunque el listado haya cambiado de tamaño/orden arriba.
   const filtrosRef = useRef(filtros);
   filtrosRef.current = filtros;
+  const paginaRef = useRef(pagina);
+  paginaRef.current = pagina;
 
   useEffect(() => {
     let cancelado = false;
@@ -131,7 +143,7 @@ export default function Pagina() {
         if (cancelado) return;
         setUltimoCruce((actual) => {
           if (ultimo && ultimo.id !== actual?.id) {
-            cargar(filtrosRef.current); // hay evento nuevo de verdad -- refresca listado+KPIs
+            cargar(filtrosRef.current, paginaRef.current); // hay evento nuevo de verdad -- refresca listado+KPIs, en la misma página
             return ultimo;
           }
           return actual ?? ultimo;
@@ -196,13 +208,19 @@ export default function Pagina() {
         </div>
       </header>
 
-      <FilterBar filtros={filtros} onChange={setFiltros} />
+      <FilterBar filtros={filtros} onChange={cambiarFiltros} />
 
-      <KpiGrid resumen={resumen} onCapturarPendientes={(p) => setFiltros((f) => ({ ...f, ...p }))} />
+      <KpiGrid resumen={resumen} onCapturarPendientes={(p) => cambiarFiltros({ ...filtros, ...p })} />
 
       <EventsTable
         eventos={eventos}
         total={total}
+        pagina={pagina}
+        totalPaginas={totalPaginas}
+        onCambiarPagina={(p) => {
+          setPagina(p);
+          setSel(0); // la selección de teclado (↑↓) es por índice de fila -- en la página nueva empieza de nuevo
+        }}
         desde={filtros.desde}
         hasta={filtros.hasta}
         umbral={UMBRAL_CONFIANZA}

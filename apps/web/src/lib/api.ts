@@ -11,8 +11,12 @@ function filtrosAQuery(f: Filtros): string {
   return params.toString();
 }
 
-export async function obtenerCruces(f: Filtros): Promise<{ eventos: Evento[]; total: number }> {
-  const res = await fetch(`/api/cruces?${filtrosAQuery(f)}`, { cache: 'no-store' });
+export async function obtenerCruces(
+  f: Filtros,
+  pagina = 1,
+): Promise<{ eventos: Evento[]; total: number; pagina: number; totalPaginas: number }> {
+  const params = filtrosAQuery(f);
+  const res = await fetch(`/api/cruces?${params}&page=${pagina}`, { cache: 'no-store' });
   if (!res.ok) throw new Error(`GET /api/cruces: HTTP ${res.status}`);
   return res.json();
 }

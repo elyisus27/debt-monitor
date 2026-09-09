@@ -7,6 +7,9 @@ import { formatFechaHora, tiempoRelativo } from '../lib/dates';
 interface Props {
   eventos: Evento[];
   total: number;
+  pagina: number;
+  totalPaginas: number;
+  onCambiarPagina: (pagina: number) => void;
   desde: string;
   hasta: string;
   umbral: number;
@@ -19,6 +22,9 @@ interface Props {
 export function EventsTable({
   eventos,
   total,
+  pagina,
+  totalPaginas,
+  onCambiarPagina,
   desde,
   hasta,
   umbral,
@@ -166,6 +172,46 @@ export function EventsTable({
           <div className={styles.vacio}>Ningún cruce coincide con estos filtros.</div>
         )}
       </div>
+
+      {totalPaginas > 1 && (
+        <div className={styles.paginacion}>
+          <button
+            type="button"
+            className={styles.paginacionBoton}
+            disabled={pagina <= 1}
+            onClick={() => onCambiarPagina(1)}
+          >
+            « Primera
+          </button>
+          <button
+            type="button"
+            className={styles.paginacionBoton}
+            disabled={pagina <= 1}
+            onClick={() => onCambiarPagina(pagina - 1)}
+          >
+            ‹ Anterior
+          </button>
+          <span className={styles.paginacionTexto}>
+            Página {pagina} de {totalPaginas}
+          </span>
+          <button
+            type="button"
+            className={styles.paginacionBoton}
+            disabled={pagina >= totalPaginas}
+            onClick={() => onCambiarPagina(pagina + 1)}
+          >
+            Siguiente ›
+          </button>
+          <button
+            type="button"
+            className={styles.paginacionBoton}
+            disabled={pagina >= totalPaginas}
+            onClick={() => onCambiarPagina(totalPaginas)}
+          >
+            Última »
+          </button>
+        </div>
+      )}
     </div>
   );
 }

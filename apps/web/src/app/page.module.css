@@ -214,6 +214,31 @@
 .vacio { text-align: center; font-size: 13px; color: var(--color-neutral-500); padding: 22.4px; }
 .cargando { text-align: center; font-size: 13px; color: var(--color-neutral-500); padding: 22.4px; }
 
+/* — paginación — fuera de .scrollTabla a propósito: queda fija al pie del
+   listado en vez de scrollear con las filas (mismo criterio que
+   .listadoCabecera arriba). */
+.paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8.4px 11.2px;
+  border-top: 1px solid var(--color-divider);
+  flex-shrink: 0;
+}
+.paginacionBoton {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-divider);
+  background: none;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.paginacionBoton:hover:not(:disabled) { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.paginacionBoton:disabled { opacity: 0.35; cursor: default; }
+.paginacionTexto { font-size: 12px; color: var(--color-neutral-500); margin-inline: 4px; }
+
 /* — visor flotante — */
 .visorBackdrop {
   position: fixed; inset: 0; display: grid; place-items: center;
@@ -336,6 +361,8 @@
   .scrollTabla { overflow: visible; }
   .listadoPista { display: none; }
   .listadoCabecera { padding: 10px; gap: 6px 10px; }
+  .paginacion { flex-wrap: wrap; padding: 8px 10px; }
+  .paginacionTexto { width: 100%; text-align: center; order: -1; margin-inline: 0; }
 
   /* tabla recortada -- 2026-08-27: filas más compactas (letra más chica,
      menos padding) para que quepa un row completo sin sentirse gigante en

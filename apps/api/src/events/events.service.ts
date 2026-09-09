@@ -25,7 +25,7 @@ export interface ListaFiltros {
   sentido?: 'todos' | 'entrada' | 'salida';
   lectura?: 'todas' | 'sin' | 'baja';
   umbral?: number;
-  cursor?: string;
+  page?: number;
   limit?: number;
 }
 
@@ -117,19 +117,23 @@ export class EventsService {
   async listar(f: ListaFiltros) {
     const where = this.buildWhere(f);
     const limit = Math.min(200, f.limit ?? 50);
-    const cursorId = f.cursor ? Number(f.cursor) : undefined;
+    const pagina = Math.max(1, f.page ?? 1);
 
-    const rows = await this.prisma.accessEvent.findMany({
-      where: cursorId ? { ...where, AND: [...((where.AND as any[]) ?? []), { id: { lt: cursorId } }] } : where,
-      orderBy: [{ id: 'desc' }],
-      take: limit,
-    });
-    const total = await this.prisma.accessEvent.count({ where });
+    const [rows, total] = await Promise.all([
+      this.prisma.accessEvent.findMany({
+        where,
+        orderBy: [{ id: 'desc' }],
+        skip: (pagina - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.accessEvent.count({ where }),
+    ]);
 
     return {
       eventos: rows.map((r) => this.toEvento(r)),
       total,
-      siguienteCursor: rows.length === limit ? String(rows[rows.length - 1].id) : null,
+      pagina,
+      totalPaginas: Math.max(1, Math.ceil(total / limit)),
     };
   }
 
