@@ -1,0 +1,16 @@
+{
+  "name": "@debt-monitor/barrier-gateway",
+  "private": true,
+  "version": "0.1.0",
+  "type": "commonjs",
+  "description": "Servicio aislado de un solo endpoint: recibe la apertura de pluma tuneleada desde Vistara (nube) y la reenvía al GPIO del tótem CondoVive en la LAN.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "dev": "node --watch src/main.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.7.0"
+  }
+}

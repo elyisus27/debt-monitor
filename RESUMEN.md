@@ -52,6 +52,10 @@ al prender la computadora, y si el proceso se cae por lo que sea, Windows
 lo vuelve a levantar solo — ya no dependen de que una sesión de Claude
 Code siga abierta. Logs con rotación en `logs/`.
 
+*(2026-09-09: viene un 4º servicio, `barrier-gateway` — ver "Fases que
+siguen". Ya tiene código en `apps/barrier-gateway`, falta la infra del
+túnel para prenderlo en producción.)*
+
 **Ojo al desplegar la pantalla (`apps/web`):** publicar un cambio de
 frontend son dos pasos, en orden — `next build` y **luego** `nssm restart
 debt-web` —, nunca solo reiniciar. Y no correr `next dev` en esa carpeta en
@@ -200,6 +204,13 @@ automático no pudo (mismo caso de las luces). Queda marcada como
   y exportar evidencia.
 - **Conexión con Vistara** — pasar el padrón de morosos detectados al
   sistema Vistara.
+- **Apertura de pluma desde la nube** (`apps/barrier-gateway` + túnel
+  Cloudflare) — para que un click en Vistara Web abra la pluma física de
+  caseta sin VPC ni abrir puertos. El código del servicio ya está y probado
+  local; falta crear el túnel `cloudflared`, la app de Cloudflare Access y
+  el llamado desde la Vistara API. Detalle en
+  [Fases del proyecto → Actuación de pluma](developersDocs/docs/fases.md) y
+  registro de decisión en `vistara-docs/docs/tunnel-cloudflare.md`.
 
 ## Validado con datos reales (2026-08-22)
 

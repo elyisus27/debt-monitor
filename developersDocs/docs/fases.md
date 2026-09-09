@@ -227,11 +227,44 @@ se descarta el pulso directo del teclado a la pluma (`ver hallazgos:
 "panel abre pluma sin autorización externa"` — eso deja de ser cierto).
 El plan real: el teclado deja de disparar la pluma directamente; nosotros,
 al recibir el evento de NIP válido, leemos la placa, consultamos el
-endpoint de Vistara, y si el resultado es favorable, mandamos el `POST`
-que abre la pluma (`192.168.196.1:3000/<ruta pendiente de confirmar>` —
-el endpoint ya existe en algún sitio, falta ubicar la ruta exacta). No se
-ha implementado nada de esto todavía — queda anotado para cuando se
-retome.
+endpoint de Vistara, y si el resultado es favorable, disparamos la
+apertura. No se ha implementado nada de esta lógica condicional todavía —
+queda anotado para cuando se retome.
+
+### Actuación de pluma — `apps/barrier-gateway` + túnel Cloudflare (2026-09-09)
+
+La *actuación* (el `POST` físico al tótem) se separó en su propio servicio
+aislado: [`apps/barrier-gateway`](../../apps/barrier-gateway/README.md) —
+Node plano, sin dependencias, un solo endpoint `POST /abrir`, bind a
+`127.0.0.1:9400`. Reenvía el pulso al GPIO del tótem CondoVive (mismo
+endpoint que `lpr-caseta/src/totem_gpio.py`).
+
+Objetivo inmediato: que **Vistara Web (nube)** pueda abrir la pluma con un
+click, sin VPC ni abrir puertos. La ruta es
+`Vistara API → cloudflared → barrier-gateway → tótem`. `cloudflared` abre
+una conexión saliente y publica `barrera.condominioreserva.com` enrutado
+**solo** a `:9400` — no al `apps/api:9100` (eso expondría el receptor de
+webhooks de los teclados).
+
+Seguridad en capas: service token de Cloudflare Access (borde) +
+`X-Barrier-Secret` (la app) + bind loopback + anti-rebote + log por
+intento.
+
+El código ya está y probado localmente (healthz, 401 sin secreto, 429
+anti-rebote, 502 si el tótem no responde). Falta la infra:
+
+- [ ] `cloudflared tunnel create barrera-caseta` + `config.yml` (`ingress`
+      `barrera.condominioreserva.com → http://127.0.0.1:9400`) + `tunnel route dns`.
+- [ ] App de Access self-hosted sobre ese hostname + service token.
+- [ ] Vistara API: llamar a `POST /abrir` con el token de Access + `X-Barrier-Secret`.
+- [ ] Confirmar `TOTEM_GPIO_URL` real contra el `.env` del sitio de `lpr-caseta`.
+- [ ] `cloudflared service install` + servicio NSSM `barrier-gateway` (auto-start).
+
+Registro de decisión completo: `vistara-docs/docs/tunnel-cloudflare.md`.
+
+La lógica condicional de Fase 5 (leer placa → consultar Vistara → abrir
+solo si procede) se apoyará en este mismo `barrier-gateway` cuando se
+implemente.
 
 **Caso real que motiva esto** (2026-08-03): 3 autos entraron con el mismo
 NIP de una casa morosa — un placa recurrente (probable oficial/staff) y
