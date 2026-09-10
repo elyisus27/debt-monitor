@@ -222,49 +222,42 @@ esta casa?" la jugada correcta es **consultar un endpoint en Vistara**
 (pendiente de habilitar allá), no mantener una copia local del padrón que
 se desincronizaría del original.
 
-**Bloqueo de pluma — arquitectura ya decidida, pendiente de implementar:**
-se descarta el pulso directo del teclado a la pluma (`ver hallazgos:
-"panel abre pluma sin autorización externa"` — eso deja de ser cierto).
-El plan real: el teclado deja de disparar la pluma directamente; nosotros,
-al recibir el evento de NIP válido, leemos la placa, consultamos el
-endpoint de Vistara, y si el resultado es favorable, disparamos la
-apertura. No se ha implementado nada de esta lógica condicional todavía —
-queda anotado para cuando se retome.
+**Bloqueo de pluma sin placa válida — fuera de alcance:** se descarta el
+pulso directo del teclado a la pluma (`ver hallazgos: "panel abre pluma sin
+autorización externa"`). Detener la pluma *antes* de que abra requeriría un
+modo de integración distinto (vía `hccgw`, no documentado todavía) — queda
+anotado como iniciativa aparte, no parte de estas fases.
 
-### Actuación de pluma — `apps/barrier-gateway` + túnel Cloudflare (2026-09-09)
+### Actuación de pluma — worker de poll `apps/barrier-gateway` (2026-09)
 
-La *actuación* (el `POST` físico al tótem) se separó en su propio servicio
-aislado: [`apps/barrier-gateway`](../../apps/barrier-gateway/README.md) —
-Node plano, sin dependencias, un solo endpoint `POST /abrir`, bind a
-`127.0.0.1:9400`. Reenvía el pulso al GPIO del tótem CondoVive (mismo
-endpoint que `lpr-caseta/src/totem_gpio.py`).
+`debt-monitor` **sí puede abrir la pluma**, pero solo **drenando una cola
+que Vistara llena** — nunca expone un endpoint entrante, no hay túnel.
 
-Objetivo inmediato: que **Vistara Web (nube)** pueda abrir la pluma con un
-click, sin VPC ni abrir puertos. La ruta es
-`Vistara API → cloudflared → barrier-gateway → tótem`. `cloudflared` abre
-una conexión saliente y publica `barrera.condominioreserva.com` enrutado
-**solo** a `:9400` — no al `apps/api:9100` (eso expondría el receptor de
-webhooks de los teclados).
+`apps/barrier-gateway` es un worker Node plano (sin dependencias) que corre
+como servicio NSSM (el 4º del proyecto). Cada ~2 s pregunta a la Vistara
+API `GET /visits/barrier-commands/poll` (auth por `X-Tenant-Slug` +
+`X-Device-Key`); por cada comando encolado, dispara el GPIO del tótem
+CondoVive localmente (mismo endpoint que `lpr-caseta/src/totem_gpio.py`).
+Un click en Vistara Web encola el comando (`POST /devices/:id/open-barrier`).
 
-Seguridad en capas: service token de Cloudflare Access (borde) +
-`X-Barrier-Secret` (la app) + bind loopback + anti-rebote + log por
-intento.
+Cero superficie entrante: la LAN pregunta hacia afuera, nada de la nube
+entra. Anti-rebote + log JSON por intento se conservan.
 
-El código ya está y probado localmente (healthz, 401 sin secreto, 429
-anti-rebote, 502 si el tótem no responde). Falta la infra:
+> **El diseño anterior — túnel `cloudflared` + `POST /abrir` entrante +
+> Cloudflare Access — se descartó** (endpoint público para una puerta
+> física, demonio extra que se cae, config Zero Trust frágil). El commit
+> `a26b25b` trajo ese código; se **pivotea** a worker de poll, no se tira.
 
-- [ ] `cloudflared tunnel create barrera-caseta` + `config.yml` (`ingress`
-      `barrera.condominioreserva.com → http://127.0.0.1:9400`) + `tunnel route dns`.
-- [ ] App de Access self-hosted sobre ese hostname + service token.
-- [ ] Vistara API: llamar a `POST /abrir` con el token de Access + `X-Barrier-Secret`.
-- [ ] Confirmar `TOTEM_GPIO_URL` real contra el `.env` del sitio de `lpr-caseta`.
-- [ ] `cloudflared service install` + servicio NSSM `barrier-gateway` (auto-start).
+Estado: **por implementar**. El código de `apps/barrier-gateway` ya tiene
+la mitad hecha (`pulseTotem()`, anti-rebote, logging, carga de `.env`);
+falta cambiar el disparador entrante por el loop de poll y crear los
+endpoints del lado de Vistara.
 
-Registro de decisión completo: `vistara-docs/docs/tunnel-cloudflare.md`.
+Registro de decisión y plan completo:
+`vistara-docs/docs/apertura-pluma-remota.md`.
 
 La lógica condicional de Fase 5 (leer placa → consultar Vistara → abrir
-solo si procede) se apoyará en este mismo `barrier-gateway` cuando se
-implemente.
+solo si procede) se apoyará en este mismo mecanismo cuando se implemente.
 
 **Caso real que motiva esto** (2026-08-03): 3 autos entraron con el mismo
 NIP de una casa morosa — un placa recurrente (probable oficial/staff) y

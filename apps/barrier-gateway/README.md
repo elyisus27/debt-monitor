@@ -1,5 +1,12 @@
 # `@debt-monitor/barrier-gateway`
 
+> ⚠️ **Este README describe un diseño descartado.** El túnel Cloudflare + `POST /abrir`
+> entrante se cambió por un **worker de poll**: `debt-monitor` le pregunta a la Vistara
+> API cada ~2 s si hay una orden de apertura encolada y dispara el tótem localmente,
+> sin exponer ningún puerto. El código se pivotea (se reusa `pulseTotem()` + anti-rebote
+> + logging). Plan completo: `vistara-docs/docs/apertura-pluma-remota.md`. El resto de
+> este archivo queda hasta que se haga el rework.
+
 Servicio **aislado**, de **un solo endpoint**, que corre en la PC de caseta (LAN).
 Recibe la orden "abrir la pluma" que Vistara (nube) manda a través del **túnel
 Cloudflare** y la reenvía al GPIO del **tótem CondoVive**.
@@ -10,7 +17,7 @@ runtime con `apps/api`. Apuntar el túnel a `apps/api` expondría *todos* sus
 endpoints (incluido el receptor de webhooks de los teclados); este servicio, no.
 
 Registro de decisión completo:
-`vistara-docs/docs/tunnel-cloudflare.md` (repo hermano).
+`vistara-docs/docs/apertura-pluma-remota.md` (repo hermano).
 
 ## API
 

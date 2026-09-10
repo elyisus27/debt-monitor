@@ -52,9 +52,12 @@ al prender la computadora, y si el proceso se cae por lo que sea, Windows
 lo vuelve a levantar solo — ya no dependen de que una sesión de Claude
 Code siga abierta. Logs con rotación en `logs/`.
 
-*(2026-09-09: viene un 4º servicio, `barrier-gateway` — ver "Fases que
-siguen". Ya tiene código en `apps/barrier-gateway`, falta la infra del
-túnel para prenderlo en producción.)*
+*(2026-09: viene un 4º servicio, `barrier-gateway` — un worker que cada
+~2 s le pregunta a Vistara si hay una orden de "abrir pluma" pendiente y,
+si la hay, dispara la pluma del tótem. NO expone nada hacia afuera; solo
+pregunta. Ya tiene medio código en `apps/barrier-gateway`; ver "Fases que
+siguen". El diseño con túnel Cloudflare que se había empezado se descartó
+— ver "Fases que siguen".)*
 
 **Ojo al desplegar la pantalla (`apps/web`):** publicar un cambio de
 frontend son dos pasos, en orden — `next build` y **luego** `nssm restart
@@ -204,13 +207,17 @@ automático no pudo (mismo caso de las luces). Queda marcada como
   y exportar evidencia.
 - **Conexión con Vistara** — pasar el padrón de morosos detectados al
   sistema Vistara.
-- **Apertura de pluma desde la nube** (`apps/barrier-gateway` + túnel
-  Cloudflare) — para que un click en Vistara Web abra la pluma física de
-  caseta sin VPC ni abrir puertos. El código del servicio ya está y probado
-  local; falta crear el túnel `cloudflared`, la app de Cloudflare Access y
-  el llamado desde la Vistara API. Detalle en
+- **Apertura de pluma desde la nube** (`apps/barrier-gateway`) — para que
+  un click en Vistara Web abra la pluma física de caseta sin VPC ni abrir
+  puertos. Un worker en caseta le pregunta a Vistara cada ~2 s si hay una
+  orden pendiente y, si la hay, dispara la pluma. No expone ningún puerto
+  hacia afuera. El servicio ya tiene medio código; falta cambiar el
+  disparador por el loop de poll y crear los endpoints del lado de Vistara.
+  El diseño con túnel Cloudflare que se había empezado se descartó
+  (endpoint público para una puerta física, un demonio más que se cae,
+  config extra que mantener). Detalle en
   [Fases del proyecto → Actuación de pluma](developersDocs/docs/fases.md) y
-  registro de decisión en `vistara-docs/docs/tunnel-cloudflare.md`.
+  registro de decisión en `vistara-docs/docs/apertura-pluma-remota.md`.
 
 ## Validado con datos reales (2026-08-22)
 
