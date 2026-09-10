@@ -83,7 +83,7 @@ interface BarrierCommand {
 }
 
 async function pollCommands(): Promise<BarrierCommand[]> {
-  const r = await fetch(`${VISTARA_API_BASE}/visits/barrier-commands/poll`, {
+  const r = await fetch(`${VISTARA_API_BASE}/barrier/poll`, {
     headers: vistaraHeaders,
     signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
   })
@@ -96,7 +96,7 @@ async function pollCommands(): Promise<BarrierCommand[]> {
 // Que falle el ack no cambia nada del lado físico -- solo se registra.
 async function ack(id: string, opened: boolean): Promise<void> {
   try {
-    await fetch(`${VISTARA_API_BASE}/visits/barrier-commands/${id}/ack`, {
+    await fetch(`${VISTARA_API_BASE}/barrier/commands/${id}/ack`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json', ...vistaraHeaders },
       body: JSON.stringify({ opened }),

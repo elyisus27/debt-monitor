@@ -18,18 +18,20 @@ Registro de decisión completo (y por qué se descartó el túnel Cloudflare):
 ## Cómo funciona
 
 ```
-Vistara Web / caseta
-  │  POST /devices/:id/open-barrier        (encola una orden)
+Vistara Web (visitas / morosos)
+  │  POST /barrier/open                    (encola una orden para el tenant)
   ▼
 Vistara API  → BarrierCommand PENDING (TTL 30s)
   ▲
-  │  GET /visits/barrier-commands/poll     (este worker, cada POLL_SECONDS)
-  │  ← [{ id, reason }]  y las marca DELIVERED
+  │  GET /barrier/poll                     (este worker, cada POLL_SECONDS)
+  │  ← { commands: [{ id, reason }] }  y las marca DELIVERED
   │
   ├─ por cada orden: POST al GPIO del tótem  (192.168.196.1:3001)
   │                  con anti-rebote (BARRIER_MIN_INTERVAL_MS)
-  └─ PATCH /visits/barrier-commands/:id/ack { opened }   (best-effort, para la web)
+  └─ PATCH /barrier/commands/:id/ack { opened }   (best-effort, para la web)
 ```
+
+La cola es por tenant, no por device — un condominio, un carril de visitantes.
 
 Ante error de red al pollear: backoff exponencial hasta 60 s, luego reintenta.
 
@@ -41,7 +43,7 @@ Ver [`.env.example`](.env.example). Lo esencial:
 |---|---|
 | `VISTARA_API_BASE` | `https://vistara-api.condominioreserva.com/api/v1` (sin barra final) |
 | `VISTARA_TENANT_SLUG` | `la-reserva` |
-| `VISTARA_DEVICE_KEY` | device key del dispositivo "Caseta - Barrera" provisionado en Vistara (`libs/prisma/scripts/create-device.ts`) |
+| `VISTARA_DEVICE_KEY` | key de cualquier device activo del tenant (solo autentica el poll; sin config especial) |
 | `POLL_SECONDS` | `2` |
 | `TOTEM_GPIO_URL` | endpoint GPIO del tótem — el mismo que usa `lpr-caseta/src/totem_gpio.py` |
 | `BARRIER_MIN_INTERVAL_MS` | anti-rebote, `4000` |
@@ -76,10 +78,10 @@ nssm start barrier-gateway
 
 ## Pendiente antes de producción
 
-- [ ] Provisionar el dispositivo "Caseta - Barrera" en Vistara (`create-device.ts`,
-      `hasBarrierControl = true`) y poner su key en `.env`.
+- [ ] Poner en `.env` la key de un device del tenant (la del OCR de `lpr-caseta`
+      sirve, o crear una con `libs/prisma/scripts/create-device.ts`).
 - [ ] Confirmar que este host alcanza el GPIO del tótem
       (`curl -X POST http://192.168.196.1:3001/devices/gpio/<adb_device>`).
 - [ ] `pnpm --filter @debt-monitor/barrier-gateway build` + `node dist/main.js`
-      contra la API real; probar el botón desde Vistara Web.
+      contra la API real; probar el botón desde Vistara Web (módulo de visitas).
 - [ ] `nssm install barrier-gateway` (auto-start).
