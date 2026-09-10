@@ -1,54 +1,57 @@
 # `@debt-monitor/barrier-gateway`
 
-> ⚠️ **Este README describe un diseño descartado.** El túnel Cloudflare + `POST /abrir`
-> entrante se cambió por un **worker de poll**: `debt-monitor` le pregunta a la Vistara
-> API cada ~2 s si hay una orden de apertura encolada y dispara el tótem localmente,
-> sin exponer ningún puerto. El código se pivotea (se reusa `pulseTotem()` + anti-rebote
-> + logging). Plan completo: `vistara-docs/docs/apertura-pluma-remota.md`. El resto de
-> este archivo queda hasta que se haga el rework.
+**Worker de poll** que corre en la PC de caseta (LAN). Cada ~2 s le pregunta a la
+Vistara API si hay una orden de "abrir la pluma" pendiente y, si la hay, dispara el
+GPIO del **tótem CondoVive** localmente.
 
-Servicio **aislado**, de **un solo endpoint**, que corre en la PC de caseta (LAN).
-Recibe la orden "abrir la pluma" que Vistara (nube) manda a través del **túnel
-Cloudflare** y la reenvía al GPIO del **tótem CondoVive**.
+**No expone ningún puerto ni endpoint.** La LAN pregunta hacia afuera; la nube nunca
+entra. Auth por device key (`X-Device-Key`), el mismo mecanismo que ya usa `lpr-caseta`
+para mandar placas.
 
 Vive en el monorepo de `debt-monitor` por comodidad de git/tooling, pero es su
-**propio proceso** y su **propio servicio de Windows** — no comparte nada en
-runtime con `apps/api`. Apuntar el túnel a `apps/api` expondría *todos* sus
-endpoints (incluido el receptor de webhooks de los teclados); este servicio, no.
+**propio proceso** y su **propio servicio de Windows** — no comparte nada en runtime
+con `apps/api`.
 
-Registro de decisión completo:
+Registro de decisión completo (y por qué se descartó el túnel Cloudflare):
 `vistara-docs/docs/apertura-pluma-remota.md` (repo hermano).
 
-## API
+## Cómo funciona
 
-### `POST /abrir`
+```
+Vistara Web / caseta
+  │  POST /devices/:id/open-barrier        (encola una orden)
+  ▼
+Vistara API  → BarrierCommand PENDING (TTL 30s)
+  ▲
+  │  GET /visits/barrier-commands/poll     (este worker, cada POLL_SECONDS)
+  │  ← [{ id, reason }]  y las marca DELIVERED
+  │
+  ├─ por cada orden: POST al GPIO del tótem  (192.168.196.1:3001)
+  │                  con anti-rebote (BARRIER_MIN_INTERVAL_MS)
+  └─ PATCH /visits/barrier-commands/:id/ack { opened }   (best-effort, para la web)
+```
 
-| | |
+Ante error de red al pollear: backoff exponencial hasta 60 s, luego reintenta.
+
+## Configuración — `.env`
+
+Ver [`.env.example`](.env.example). Lo esencial:
+
+| Variable | |
 |---|---|
-| Header obligatorio | `X-Barrier-Secret: <BARRIER_SHARED_SECRET>` |
-| Body (opcional) | `{ "reason": "...", "actorUserId": "..." }` — solo para el log |
-| `200` | `{ "opened": true }` |
-| `401` | secreto ausente o incorrecto |
-| `429` | otra apertura hace < `BARRIER_MIN_INTERVAL_MS` (anti-rebote) |
-| `502` | el tótem no respondió OK |
+| `VISTARA_API_BASE` | `https://vistara-api.condominioreserva.com/api/v1` (sin barra final) |
+| `VISTARA_TENANT_SLUG` | `la-reserva` |
+| `VISTARA_DEVICE_KEY` | device key del dispositivo "Caseta - Barrera" provisionado en Vistara (`libs/prisma/scripts/create-device.ts`) |
+| `POLL_SECONDS` | `2` |
+| `TOTEM_GPIO_URL` | endpoint GPIO del tótem — el mismo que usa `lpr-caseta/src/totem_gpio.py` |
+| `BARRIER_MIN_INTERVAL_MS` | anti-rebote, `4000` |
 
-### `GET /healthz`
+## Log
 
-`{ "ok": true, "service": "barrier-gateway" }` — sin secreto, sin efectos. Para
-monitoreo local.
-
-## Seguridad — en capas
-
-1. **Cloudflare Access + service token** (borde) — solo la Vistara API tiene el
-   `CF-Access-Client-Id` / `CF-Access-Client-Secret`.
-2. **`X-Barrier-Secret`** (esta app) — aun dentro del túnel, sin el secreto no abre.
-3. **Bind a `127.0.0.1`** — nada de la LAN alcanza el puerto, solo `cloudflared`
-   que corre en la misma máquina.
-4. **Anti-rebote** + log JSON de cada intento (`abierto` / `rechazado_secreto` /
-   `rechazado_rebote` / `totem_error`) con `actorUserId` e IP.
-
-El endpoint no toca base de datos: la bitácora de "quién abrió y por qué" vive en
-Vistara, que es quien llama con el `actorUserId`.
+Una línea JSON por evento a stdout (`{ ts, outcome, ... }`):
+`abierto` · `rechazado_rebote` · `totem_error` · `poll_error` · `ack_error`.
+La bitácora de "quién abrió y por qué" vive en Vistara (el `actorUserId` y el audit
+log), no aquí — este worker solo dispara el pulso.
 
 ## Correr
 
@@ -73,10 +76,10 @@ nssm start barrier-gateway
 
 ## Pendiente antes de producción
 
-- [ ] `cloudflared tunnel create barrera-caseta` + `config.yml` con `ingress`
-      `barrera.condominioreserva.com → http://127.0.0.1:9400`.
-- [ ] `cloudflared tunnel route dns barrera-caseta barrera.condominioreserva.com`.
-- [ ] App de Access self-hosted sobre ese hostname + service token.
-- [ ] En la Vistara API: llamar a `POST /abrir` con el token de Access + `X-Barrier-Secret`.
-- [ ] Confirmar la `TOTEM_GPIO_URL` real contra `lpr-caseta/.env` del sitio.
-- [ ] `cloudflared service install` + servicio NSSM `barrier-gateway`.
+- [ ] Provisionar el dispositivo "Caseta - Barrera" en Vistara (`create-device.ts`,
+      `hasBarrierControl = true`) y poner su key en `.env`.
+- [ ] Confirmar que este host alcanza el GPIO del tótem
+      (`curl -X POST http://192.168.196.1:3001/devices/gpio/<adb_device>`).
+- [ ] `pnpm --filter @debt-monitor/barrier-gateway build` + `node dist/main.js`
+      contra la API real; probar el botón desde Vistara Web.
+- [ ] `nssm install barrier-gateway` (auto-start).

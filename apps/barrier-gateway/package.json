@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "commonjs",
-  "description": "Servicio aislado de un solo endpoint: recibe la apertura de pluma tuneleada desde Vistara (nube) y la reenvía al GPIO del tótem CondoVive en la LAN.",
+  "description": "Worker en la LAN de caseta: pollea la Vistara API cada ~2s por órdenes de apertura de pluma y dispara el GPIO del tótem CondoVive. No expone ningún puerto.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",

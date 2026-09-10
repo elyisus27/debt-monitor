@@ -1,5 +1,3 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { timingSafeEqual } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -24,55 +22,43 @@ function loadDotenv(): void {
 loadDotenv()
 
 // --- Config -------------------------------------------------------------------
-const PORT = Number(process.env.PORT ?? 9400)
-const BIND_HOST = process.env.BIND_HOST ?? '127.0.0.1'
-const SHARED_SECRET = process.env.BARRIER_SHARED_SECRET ?? ''
+const VISTARA_API_BASE = (process.env.VISTARA_API_BASE ?? '').replace(/\/+$/, '')
+const TENANT_SLUG = process.env.VISTARA_TENANT_SLUG ?? ''
+const DEVICE_KEY = process.env.VISTARA_DEVICE_KEY ?? ''
+const POLL_MS = Math.max(1, Number(process.env.POLL_SECONDS ?? 2)) * 1000
+const HTTP_TIMEOUT_MS = 10_000
+
 const TOTEM_GPIO_URL = process.env.TOTEM_GPIO_URL ?? ''
 const TOTEM_GPIO_TOKEN = process.env.TOTEM_GPIO_TOKEN ?? ''
 const TOTEM_TIMEOUT_MS = Number(process.env.TOTEM_TIMEOUT_MS ?? 5000)
-// Anti-rebote: dos aperturas legítimas seguidas no tienen sentido y una
-// ráfaga sí es sospechosa. La pluma tarda varios segundos en su ciclo.
+// Anti-rebote: dos aperturas legítimas seguidas no tienen sentido y una ráfaga sí
+// es sospechosa. La pluma tarda varios segundos en su ciclo.
 const MIN_INTERVAL_MS = Number(process.env.BARRIER_MIN_INTERVAL_MS ?? 4000)
+const MAX_BACKOFF_MS = 60_000
 
-if (!SHARED_SECRET) {
-  console.error('barrier-gateway: falta BARRIER_SHARED_SECRET -- no arranco sin secreto')
-  process.exit(1)
-}
-if (!TOTEM_GPIO_URL) {
-  console.error('barrier-gateway: falta TOTEM_GPIO_URL -- no sé a dónde mandar el pulso')
-  process.exit(1)
+for (const [name, val] of Object.entries({
+  VISTARA_API_BASE,
+  VISTARA_TENANT_SLUG: TENANT_SLUG,
+  VISTARA_DEVICE_KEY: DEVICE_KEY,
+  TOTEM_GPIO_URL,
+})) {
+  if (!val) {
+    console.error(`barrier-gateway: falta ${name} -- no arranco sin eso`)
+    process.exit(1)
+  }
 }
 
-const SECRET_BUF = Buffer.from(SHARED_SECRET)
 let lastOpenOkAt = 0
+let backoffMs = 0
 
 // --- Helpers -----------------------------------------------------------------
 function log(outcome: string, extra: Record<string, unknown> = {}): void {
   console.log(JSON.stringify({ ts: new Date().toISOString(), outcome, ...extra }))
 }
 
-function json(res: ServerResponse, status: number, body: unknown): void {
-  const payload = JSON.stringify(body)
-  res.writeHead(status, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) })
-  res.end(payload)
-}
-
-function secretOk(header: string | undefined): boolean {
-  if (!header) return false
-  const given = Buffer.from(header)
-  if (given.length !== SECRET_BUF.length) return false
-  return timingSafeEqual(given, SECRET_BUF)
-}
-
-async function readBody(req: IncomingMessage, limitBytes = 4096): Promise<string> {
-  const chunks: Buffer[] = []
-  let size = 0
-  for await (const chunk of req) {
-    size += chunk.length
-    if (size > limitBytes) throw new Error('body demasiado grande')
-    chunks.push(chunk as Buffer)
-  }
-  return Buffer.concat(chunks).toString('utf8')
+const vistaraHeaders: Record<string, string> = {
+  'X-Tenant-Slug': TENANT_SLUG,
+  'X-Device-Key': DEVICE_KEY,
 }
 
 async function pulseTotem(): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -91,54 +77,73 @@ async function pulseTotem(): Promise<{ ok: true } | { ok: false; error: string }
   }
 }
 
-// --- Servidor ---------------------------------------------------------------
-const server = createServer(async (req, res) => {
-  const { method, url } = req
-  const ip = req.socket.remoteAddress ?? '?'
+interface BarrierCommand {
+  id: string
+  reason: string | null
+}
 
-  if (method === 'GET' && url === '/healthz') {
-    return json(res, 200, { ok: true, service: 'barrier-gateway' })
-  }
+async function pollCommands(): Promise<BarrierCommand[]> {
+  const r = await fetch(`${VISTARA_API_BASE}/visits/barrier-commands/poll`, {
+    headers: vistaraHeaders,
+    signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
+  })
+  if (!r.ok) throw new Error(`poll HTTP ${r.status}`)
+  const body = (await r.json()) as { commands?: BarrierCommand[] }
+  return Array.isArray(body.commands) ? body.commands : []
+}
 
-  if (method !== 'POST' || url !== '/abrir') {
-    return json(res, 404, { error: 'not found' })
-  }
-
-  if (!secretOk(req.headers['x-barrier-secret'] as string | undefined)) {
-    log('rechazado_secreto', { ip })
-    return json(res, 401, { error: 'unauthorized' })
-  }
-
-  let reason: string | undefined
-  let actorUserId: string | undefined
+// Ack best-effort: le dice a Vistara si la pluma abrió, para el feedback de la web.
+// Que falle el ack no cambia nada del lado físico -- solo se registra.
+async function ack(id: string, opened: boolean): Promise<void> {
   try {
-    const body = await readBody(req)
-    if (body.trim()) {
-      const parsed = JSON.parse(body) as { reason?: unknown; actorUserId?: unknown }
-      if (typeof parsed.reason === 'string') reason = parsed.reason
-      if (typeof parsed.actorUserId === 'string') actorUserId = parsed.actorUserId
-    }
-  } catch {
-    return json(res, 400, { error: 'body inválido' })
+    await fetch(`${VISTARA_API_BASE}/visits/barrier-commands/${id}/ack`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', ...vistaraHeaders },
+      body: JSON.stringify({ opened }),
+      signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
+    })
+  } catch (e) {
+    log('ack_error', { id, error: e instanceof Error ? e.message : String(e) })
   }
+}
 
+async function handleCommand(cmd: BarrierCommand): Promise<void> {
   const now = Date.now()
   if (now - lastOpenOkAt < MIN_INTERVAL_MS) {
-    log('rechazado_rebote', { ip, actorUserId, reason })
-    return json(res, 429, { opened: false, error: 'apertura reciente, espera unos segundos' })
+    log('rechazado_rebote', { id: cmd.id, reason: cmd.reason })
+    await ack(cmd.id, false)
+    return
   }
-
   const result = await pulseTotem()
   if (!result.ok) {
-    log('totem_error', { ip, actorUserId, reason, error: result.error })
-    return json(res, 502, { opened: false, error: result.error })
+    log('totem_error', { id: cmd.id, reason: cmd.reason, error: result.error })
+    await ack(cmd.id, false)
+    return
   }
-
   lastOpenOkAt = now
-  log('abierto', { ip, actorUserId, reason })
-  return json(res, 200, { opened: true })
-})
+  log('abierto', { id: cmd.id, reason: cmd.reason })
+  await ack(cmd.id, true)
+}
 
-server.listen(PORT, BIND_HOST, () => {
-  console.log(`barrier-gateway escuchando en http://${BIND_HOST}:${PORT} -> ${TOTEM_GPIO_URL}`)
-})
+async function tick(): Promise<void> {
+  try {
+    const commands = await pollCommands()
+    backoffMs = 0
+    for (const cmd of commands) await handleCommand(cmd)
+  } catch (e) {
+    backoffMs = Math.min(backoffMs === 0 ? POLL_MS * 2 : backoffMs * 2, MAX_BACKOFF_MS)
+    log('poll_error', { error: e instanceof Error ? e.message : String(e), retryInMs: backoffMs })
+  }
+}
+
+async function main(): Promise<void> {
+  console.log(
+    `barrier-gateway (worker de poll) -> ${VISTARA_API_BASE} cada ${POLL_MS}ms -> ${TOTEM_GPIO_URL}`,
+  )
+  for (;;) {
+    await tick()
+    await new Promise((r) => setTimeout(r, backoffMs || POLL_MS))
+  }
+}
+
+void main()
