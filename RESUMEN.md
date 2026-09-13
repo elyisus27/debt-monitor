@@ -205,8 +205,35 @@ automático no pudo (mismo caso de las luces). Queda marcada como
 - **Padrón y patrones** — cruzar auto↔casa↔NIP, detectar mal uso.
 - **Panel de administrador** — pantalla completa para autorizar/restringir
   y exportar evidencia.
-- **Conexión con Vistara** — pasar el padrón de morosos detectados al
-  sistema Vistara.
+- **Conexión con Vistara — código listo (2026-09-12), falta configurar y desplegar.**
+  Cada cruce de **entrada** (nunca salida — Vistara solo acepta ese sentido por ahora)
+  se manda a `POST /visits/plate-events` de Vistara con el domicilio (`casaUnidad`)
+  y la placa leída, autenticado como un Device dedicado (`kind=DELINQUENT_KEYPAD`) que
+  ya existe del lado de Vistara ("Teclado Morosos", tenant `la-reserva`). Del lado de
+  Vistara, ese domicilio resuelve la unidad directo (sin depender de que la placa
+  matchee nada) y registra la visita de inmediato — visible en su Histórico con la
+  etiqueta "Teclado Morosos" — sin pasar por ninguna cola de revisión.
+  - **Cola durable, no un POST suelto**: `access_events` ganó columnas
+    `vistara_status`/`vistara_attempts`/`vistara_error`/`vistara_next_try` — un
+    servicio nuevo (`apps/api/src/sync-vistara/`) revisa cada ~20s los eventos de
+    entrada sin sincronizar y reintenta con backoff (30s→300s) si Vistara no
+    responde, mismo patrón que ya usa `lpr-caseta`/`plate-ocr` para su propio envío.
+  - **Por qué espera a que la placa ya se haya leído**: Vistara identifica cada
+    evento por un ID único y no acepta una segunda actualización del mismo — si
+    mandáramos el evento antes de leer la placa, la lectura llegaría tarde y se
+    perdería. El servicio solo toma eventos donde `photoPaths` ya no es nulo (la
+    señal de que `capturarFotosYPlaca()` ya terminó, con o sin placa).
+  - **Falta para que esto sirva de verdad**: llenar `VISTARA_API_BASE_URL` /
+    `VISTARA_TENANT_SLUG` / `VISTARA_DEVICE_KEY` en `apps/api/.env` (la clave del
+    Device se entregó una sola vez al crearlo, pídesela al que lo creó si se
+    perdió — no se puede recuperar, solo rotar) y correr `prisma db push` en
+    `apps/api` para aplicar las columnas nuevas antes de reiniciar el servicio
+    `debt-api`. Sin esas 3 variables, el servicio nuevo se queda callado (solo un
+    warning en el log) — no rompe nada de lo que ya funciona.
+  - **Límite conocido, aceptado por ahora**: si se corrige una placa a mano
+    (`capturarPlacaManual`) DESPUÉS de que ese evento ya se sincronizó, la
+    corrección no se vuelve a mandar — reenviar duplicaría el registro del lado de
+    Vistara. Se queda documentada solo aquí.
 - **Apertura de pluma desde la nube** (`apps/barrier-gateway`) — para que
   un click en Vistara Web abra la pluma física de caseta sin VPC ni abrir
   puertos. Un worker en caseta le pregunta a Vistara cada ~2 s si hay una

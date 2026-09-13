@@ -230,7 +230,14 @@ export class EventsService {
   }) {
     try {
       return await this.prisma.accessEvent.create({
-        data: { ...data, receivedAt: new Date().toISOString() },
+        data: {
+          ...data,
+          receivedAt: new Date().toISOString(),
+          // Vistara solo acepta direction='IN' -- un evento de salida nunca se
+          // manda, se marca 'skipped' desde ya para que no se quede en 'pending'
+          // para siempre (ver SyncVistaraService).
+          ...(data.puerta !== 'entrada' ? { vistaraStatus: 'skipped' } : {}),
+        },
       });
     } catch (err) {
       // Violación de UNIQUE(ip_address, serial_no) -- evento duplicado, no es un error real.
