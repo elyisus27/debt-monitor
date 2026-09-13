@@ -5,6 +5,7 @@ import { EventsModule } from './events/events.module';
 import { DevicesModule } from './devices/devices.module';
 import { MediaModule } from './media/media.module';
 import { IngestModule } from './ingest/ingest.module';
+import { SyncVistaraModule } from './sync-vistara/sync-vistara.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { IngestModule } from './ingest/ingest.module';
     EventsModule,
     DevicesModule,
     MediaModule,
+    SyncVistaraModule,
     IngestModule,
   ],
 })

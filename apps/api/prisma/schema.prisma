@@ -35,8 +35,20 @@ model AccessEvent {
   vehicleLabel    String?  @map("vehicle_label") // "tipo" del contrato de diseño (car/truck/bus/motorcycle)
   plateManual     Boolean  @default(false) @map("plate_manual") // "manual" del contrato -- true tras un PATCH
 
+  // Conexión con Vistara (2026-09) -- cola durable de entrega, no fire-and-forget.
+  // 'pending' = por mandar; 'sent' = Vistara lo confirmó (o respondió 'duplicate',
+  // mismo trato -- ya está allá); 'error' = falló, se reintenta con backoff;
+  // 'skipped' = puerta='salida' o eventos previos a esta feature, nunca se manda
+  // (Vistara solo acepta direction='IN'). Ver SyncVistaraService.
+  vistaraStatus   String   @default("pending") @map("vistara_status")
+  vistaraAttempts Int      @default(0) @map("vistara_attempts")
+  vistaraError    String?  @map("vistara_error")
+  vistaraSentAt   String?  @map("vistara_sent_at")
+  vistaraNextTry  String?  @map("vistara_next_try") // backoff -- no reintentar antes de esta fecha
+
   @@unique([ipAddress, serialNo])
   @@index([casaUnidad])
   @@index([timestamp])
+  @@index([vistaraStatus])
   @@map("access_events")
 }
