@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 
 // --- .env mínimo (sin dependencias) --------------------------------------------
 // Mismo patrón que lpr-caseta/src/totem_gpio.py: no pisa variables ya presentes
@@ -25,8 +26,23 @@ loadDotenv()
 const VISTARA_API_BASE = (process.env.VISTARA_API_BASE ?? '').replace(/\/+$/, '')
 const TENANT_SLUG = process.env.VISTARA_TENANT_SLUG ?? ''
 const DEVICE_KEY = process.env.VISTARA_DEVICE_KEY ?? ''
-const POLL_MS = Math.max(1, Number(process.env.POLL_SECONDS ?? 2)) * 1000
+// Este poll ya NO es el camino normal -- es la red de seguridad para cuando el
+// push (abajo) no llega (túnel caído). Por eso el default subió de 2s a 20s: casi
+// nunca debería encontrar nada, así que espaciarlo no cuesta latencia real y sí
+// ahorra la mayoría de las consultas que antes mantenían despiertos a Neon/Cloud Run.
+const POLL_MS = Math.max(1, Number(process.env.POLL_SECONDS ?? 20)) * 1000
 const HTTP_TIMEOUT_MS = 10_000
+
+// --- Servidor de push (camino rápido) ------------------------------------------
+// Vistara le pega directo a esto, vía un túnel Cloudflare (cloudflared) que corre
+// aparte en esta misma PC -- este proceso solo escucha en loopback, nunca en la
+// interfaz de red de la LAN. cloudflared es quien decide qué tráfico de internet
+// llega aquí (con Cloudflare Access de por medio); este servidor solo valida el
+// token compartido, sin abrir ningún puerto hacia la LAN ni hacia internet por su
+// cuenta. PUSH_TOKEN vacío = servidor de push desactivado (queda solo el poll,
+// comportamiento anterior a este cambio).
+const PUSH_PORT = Number(process.env.PUSH_PORT ?? 8787)
+const PUSH_TOKEN = process.env.PUSH_TOKEN ?? ''
 
 const TOTEM_GPIO_URL = process.env.TOTEM_GPIO_URL ?? ''
 const TOTEM_GPIO_TOKEN = process.env.TOTEM_GPIO_TOKEN ?? ''
@@ -125,6 +141,93 @@ async function handleCommand(cmd: BarrierCommand): Promise<void> {
   await ack(cmd.id, true)
 }
 
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolvePromise, rejectPromise) => {
+    let body = ''
+    req.on('data', (chunk) => {
+      body += chunk
+      if (body.length > 10_000) req.destroy() // sin malicia esperada, pero por si acaso
+    })
+    req.on('end', () => resolvePromise(body))
+    req.on('error', rejectPromise)
+  })
+}
+
+function sendJson(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { 'content-type': 'application/json' })
+  res.end(JSON.stringify(body))
+}
+
+// Mismo anti-rebote y mismo pulso que el camino de poll (`handleCommand`) --
+// comparten `lastOpenOkAt` a propósito: si el push ya abrió, un poll que
+// alcance a ver el mismo comando todavía PENDING (ventana angosta mientras
+// Vistara espera la respuesta del push) se rechaza como rebote en vez de
+// pulsar el tótem una segunda vez.
+async function handlePushRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (req.method !== 'POST' || req.url !== '/push') {
+    res.writeHead(404).end()
+    return
+  }
+  if (!PUSH_TOKEN || req.headers['x-push-token'] !== PUSH_TOKEN) {
+    res.writeHead(401).end()
+    return
+  }
+
+  let payload: { id?: unknown; reason?: unknown }
+  try {
+    const raw = await readBody(req)
+    payload = JSON.parse(raw || '{}') as typeof payload
+  } catch {
+    sendJson(res, 400, { error: 'bad_json' })
+    return
+  }
+  const id = typeof payload.id === 'string' ? payload.id : null
+  const reason = typeof payload.reason === 'string' ? payload.reason : null
+  if (!id) {
+    sendJson(res, 400, { error: 'missing_id' })
+    return
+  }
+
+  const now = Date.now()
+  if (now - lastOpenOkAt < MIN_INTERVAL_MS) {
+    log('push_rechazado_rebote', { id, reason })
+    sendJson(res, 200, { opened: false })
+    return
+  }
+
+  const result = await pulseTotem()
+  if (!result.ok) {
+    log('push_totem_error', { id, reason, error: result.error })
+    sendJson(res, 200, { opened: false })
+    return
+  }
+
+  lastOpenOkAt = now
+  log('push_abierto', { id, reason })
+  sendJson(res, 200, { opened: true })
+}
+
+function startPushServer(): void {
+  if (!PUSH_TOKEN) {
+    log('push_desactivado', { reason: 'PUSH_TOKEN no configurado -- solo poll de respaldo' })
+    return
+  }
+  const server = createServer((req, res) => {
+    handlePushRequest(req, res).catch((e) => {
+      log('push_error', { error: e instanceof Error ? e.message : String(e) })
+      if (!res.headersSent) res.writeHead(500).end()
+    })
+  })
+  server.on('error', (e) => {
+    log('push_server_error', { error: e instanceof Error ? e.message : String(e) })
+  })
+  // Solo loopback -- cloudflared corre aparte en esta misma PC y es quien decide
+  // qué llega aquí desde el túnel; este puerto nunca se anuncia en la LAN.
+  server.listen(PUSH_PORT, '127.0.0.1', () => {
+    log('push_listening', { port: PUSH_PORT })
+  })
+}
+
 async function tick(): Promise<void> {
   try {
     const commands = await pollCommands()
@@ -137,8 +240,9 @@ async function tick(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  startPushServer()
   console.log(
-    `barrier-gateway (worker de poll) -> ${VISTARA_API_BASE} cada ${POLL_MS}ms -> ${TOTEM_GPIO_URL}`,
+    `barrier-gateway -> push (:${PUSH_PORT}) + poll de respaldo cada ${POLL_MS}ms -> ${VISTARA_API_BASE} -> ${TOTEM_GPIO_URL}`,
   )
   for (;;) {
     await tick()

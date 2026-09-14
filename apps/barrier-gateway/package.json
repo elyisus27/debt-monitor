@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "commonjs",
-  "description": "Worker en la LAN de caseta: pollea la Vistara API cada ~2s por órdenes de apertura de pluma y dispara el GPIO del tótem CondoVive. No expone ningún puerto.",
+  "description": "Worker en la LAN de caseta: recibe push directo de la Vistara API (vía túnel Cloudflare) por órdenes de apertura de pluma y dispara el GPIO del tótem CondoVive; pollea cada ~20s solo como respaldo si el push falla.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
