@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { basename } from 'node:path';
 
 // Conexión con Vistara -- manda cada cruce de ENTRADA por el teclado de morosos
 // a POST /visits/plate-events (mismo endpoint del LPR de visitantes), autenticado
@@ -114,7 +115,20 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
     timestamp: string;
     plateText: string | null;
     plateConfidence: number | null;
+    photoPaths: string | null;
   }): Promise<{ ok: boolean; error?: string }> {
+    // Fotos ya capturadas ANTES de este punto (photoPaths != null es justo la
+    // condición que ya exige el WHERE de tick() para tomar el evento) -- van
+    // síncronas en el mismo POST, sin round-trip aparte. "keypad/" es el mismo
+    // prefijo que photo-serve.controller.ts usa para resolver la carpeta real.
+    let photoRefs: string[] | undefined;
+    try {
+      const paths: string[] = ev.photoPaths ? JSON.parse(ev.photoPaths) : [];
+      if (paths.length > 0) photoRefs = paths.map((p) => `keypad/${basename(p)}`);
+    } catch {
+      photoRefs = undefined;
+    }
+
     const payload = {
       eventId: `moroso-${ev.id}`,
       detectedAt: ev.timestamp,
@@ -122,6 +136,7 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
       confidence: ev.plateConfidence ?? undefined,
       direction: 'IN' as const,
       domicileCode: ev.casaUnidad,
+      ...(photoRefs ? { photoRefs } : {}),
     };
 
     try {

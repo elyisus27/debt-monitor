@@ -52,3 +52,32 @@ model AccessEvent {
   @@index([vistaraStatus])
   @@map("access_events")
 }
+
+// Fotos de registros de guardia hechos en Vistara (carril de visitantes) --
+// APARTADO SEPARADO de access_events a propósito: no es un cruce de teclado
+// (esos siguen viviendo solos arriba) ni un evento de LPR en caliente (ese no
+// tiene certeza de cuál es "el" cruce) -- es la confirmación de un registro que
+// el guardia YA guardó en Vistara. Una fila por Visit de Vistara (visitId es su
+// cuid, no uno nuestro). Mismo patrón vistara* de cola durable que access_events
+// -- ver GuardPhotosSyncService.
+model GuardVisitPhoto {
+  id         Int      @id @default(autoincrement())
+  visitId    String   @unique @map("visit_id")
+  tenantId   String   @map("tenant_id")
+  plate      String?
+  photoPaths String?  @map("photo_paths") // JSON string, relativo a data/guard-photos/
+  capturedAt String?  @map("captured_at")
+  createdAt  String   @map("created_at")
+
+  // 'pending' = falta mandar a Vistara; 'sent' = confirmado; 'error' = falla,
+  // reintenta con backoff; 'skipped' = captura sin fotos (GUARD_PHOTO_CHANNELS
+  // vacío, o el DVR falló las 3 veces) -- nada que mandar, no se reintenta.
+  vistaraStatus   String  @default("pending") @map("vistara_status")
+  vistaraAttempts Int     @default(0) @map("vistara_attempts")
+  vistaraError    String? @map("vistara_error")
+  vistaraSentAt   String? @map("vistara_sent_at")
+  vistaraNextTry  String? @map("vistara_next_try")
+
+  @@index([vistaraStatus])
+  @@map("guard_visit_photos")
+}
