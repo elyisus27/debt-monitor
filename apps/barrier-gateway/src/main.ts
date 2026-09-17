@@ -165,10 +165,15 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
 // pulsar el tótem una segunda vez.
 async function handlePushRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (req.method !== 'POST' || req.url !== '/push') {
+    log('push_404', { method: req.method, url: req.url })
     res.writeHead(404).end()
     return
   }
   if (!PUSH_TOKEN || req.headers['x-push-token'] !== PUSH_TOKEN) {
+    log('push_401', {
+      motivo: !PUSH_TOKEN ? 'sin_push_token_local' : 'token_no_coincide',
+      recibido: typeof req.headers['x-push-token'] === 'string' ? '(presente)' : '(ausente)',
+    })
     res.writeHead(401).end()
     return
   }
