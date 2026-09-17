@@ -1,12 +1,19 @@
 # `@debt-monitor/barrier-gateway`
 
-Worker que corre en la PC de caseta (LAN). Recibe la orden de "abrir la pluma" por
-**push directo** de la Vistara API (vía un túnel Cloudflare que corre aparte en esta
-misma PC) y dispara el GPIO del **tótem CondoVive** localmente. Si el push no llega
-(túnel caído), un **poll de respaldo** cada ~20 s recoge la orden igual.
+Worker que corre en la PC de caseta (LAN). Es hoy el **único punto de entrada desde
+internet** para varias cosas de este proyecto — no solo la pluma, ver "Fotos de
+visitas" abajo — vía el mismo túnel Cloudflare y el mismo token compartido, a
+propósito: crecer un solo gateway ya expuesto/ya auditado es más manejable que un
+proceso+túnel+token nuevo por cada capacidad. El nombre quedó corto (nació siendo
+solo la pluma) — pendiente re-evaluarlo cuando el alcance real se estabilice, no
+antes (decisión del usuario, 2026-09-17).
 
-**El proceso en sí no expone ningún puerto a la LAN ni a internet.** El servidor de
-push escucha solo en `127.0.0.1` — es `cloudflared` (proceso aparte, con Cloudflare
+Función original: recibe la orden de "abrir la pluma" por **push directo** de la
+Vistara API y dispara el GPIO del **tótem CondoVive** localmente. Si el push no
+llega (túnel caído), un **poll de respaldo** cada ~20 s recoge la orden igual.
+
+**El proceso en sí no expone ningún puerto a la LAN ni a internet.** El servidor
+escucha solo en `127.0.0.1` — es `cloudflared` (proceso aparte, con Cloudflare
 Access de por medio) quien decide qué tráfico de internet llega ahí. Nunca se abre
 ningún puerto en el router ni se reenvía nada.
 
@@ -48,6 +55,41 @@ respuesta HTTP, sin necesidad de un ack aparte.
 
 Ante error de red al pollear: backoff exponencial hasta 60 s, luego reintenta.
 
+## Fotos de visitas (2026-09-17)
+
+Dos rutas más en el MISMO servidor de push (mismo puerto, mismo `PUSH_TOKEN`,
+mismo hostname `barrier-push.condominioreserva.com` — sin tunel/token/hostname
+nuevos). Ninguna toca el DVR ni la DB directamente, solo relayan en LAN hacia
+`apps/api` (`API_BASE_URL`, ver `.env.example`):
+
+```
+Vistara API
+  │  POST https://barrier-push.condominioreserva.com/capture-photos
+  │  { visitId, tenantId, plate }, header X-Push-Token
+  ▼
+Cloudflare Tunnel ──► este worker, POST /capture-photos (127.0.0.1)
+  │                     └─ valida X-Push-Token (mismo de siempre) → relay
+  ▼
+apps/api  POST /api/guard-photos/capture-request (127.0.0.1:9100)
+            responde 202 de inmediato, captura en 2do plano
+
+...más tarde, sin relación de tiempo, apps/api habla directo a Vistara
+(GuardPhotosSyncService) -- eso NO pasa por este worker.
+
+Vistara API (para mostrar una foto en su web, en cualquier momento)
+  │  GET https://barrier-push.condominioreserva.com/photo/:kind/:file
+  │  header X-Push-Token
+  ▼
+Cloudflare Tunnel ──► este worker, GET /photo/:kind/:file (127.0.0.1)
+  │                     └─ valida X-Push-Token → relay
+  ▼
+apps/api  GET /api/vistara-photos/:kind/:file (127.0.0.1:9100)
+            sirve el JPEG real (kind=keypad|guard)
+```
+
+Contrato completo del lado de Vistara: CLAUDE.md (repo `vistara`) §
+"DECISIONES DE DISEÑO — FOTOS DE VISITAS (debt-monitor)".
+
 ## Configuración — `.env`
 
 Ver [`.env.example`](.env.example). Lo esencial:
@@ -61,16 +103,19 @@ Ver [`.env.example`](.env.example). Lo esencial:
 | `TOTEM_GPIO_URL` | endpoint GPIO del tótem — el mismo que usa `lpr-caseta/src/totem_gpio.py` |
 | `BARRIER_MIN_INTERVAL_MS` | anti-rebote, `4000` |
 | `PUSH_PORT` | puerto local (`127.0.0.1`) donde escucha el servidor de push, `8787` |
-| `PUSH_TOKEN` | secreto compartido con `BARRIER_PUSH_TOKEN` del lado de Vistara. Vacío = push desactivado |
+| `PUSH_TOKEN` | secreto compartido con `BARRIER_PUSH_TOKEN` del lado de Vistara. Vacío = TODO este servidor desactivado (pluma y fotos) |
+| `API_BASE_URL` | `http://127.0.0.1:9100` — `apps/api` en esta misma PC, usado por las rutas de fotos |
 
 ## Log
 
 Una línea JSON por evento a stdout (`{ ts, outcome, ... }`):
 `push_listening` · `push_abierto` · `push_rechazado_rebote` · `push_totem_error` ·
-`push_error` · `push_desactivado` (push) — `abierto` · `rechazado_rebote` ·
-`totem_error` · `poll_error` · `ack_error` (poll de respaldo).
+`push_error` · `push_desactivado` (pluma) — `abierto` · `rechazado_rebote` ·
+`totem_error` · `poll_error` · `ack_error` (poll de respaldo) — `capture_relayed` ·
+`capture_rejected` · `capture_401` · `capture_api_error` (captura de fotos) ·
+`photo_served` · `photo_not_found` · `photo_401` · `photo_api_error` (servir foto).
 La bitácora de "quién abrió y por qué" vive en Vistara (el `actorUserId` y el audit
-log), no aquí — este worker solo dispara el pulso.
+log), no aquí — este worker solo dispara el pulso / relaya.
 
 ## Correr
 
@@ -139,3 +184,13 @@ patrón NSSM que el resto de servicios de esta PC.
       contra la API real; probar el botón desde Vistara Web (módulo de visitas) y
       confirmar en el log `push_abierto` (no `rechazado_rebote`/poll de respaldo).
 - [ ] `nssm install barrier-gateway` (auto-start) + `nssm install cloudflared`.
+
+## Pendiente para fotos de visitas (aparte de lo de arriba)
+
+Nada de túnel/Access/token nuevo -- reusa todo lo ya listado arriba. Solo:
+
+- [ ] `prisma db push` en `apps/api` (tabla `guard_visit_photos` nueva).
+- [ ] Rebuild + restart de ESTE servicio (`barrier-gateway`), no uno nuevo:
+      `pnpm --filter @debt-monitor/barrier-gateway build` + `nssm restart barrier-gateway`.
+- [ ] Probar un registro de guardia desde Vistara Web y confirmar en el log
+      `capture_relayed` (no `capture_api_error`).

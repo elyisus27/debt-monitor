@@ -218,17 +218,18 @@ piezas, cada una en su rama (`feat/vistara-guard-photos` aquí,
    carril de visitantes se ve con el mismo equipo, no hay cámara aparte), en
    un apartado propio de storage (`data/guard-photos/`, tabla
    `guard_visit_photos`) — nunca mezclado con los cruces de teclado de arriba.
-3. **`apps/photos-gateway`** (proceso nuevo, mismo patrón que
-   `apps/barrier-gateway` de la pluma) — es la única puerta desde internet
-   para las 2 cosas de arriba, vía el mismo túnel Cloudflare que ya usa la
-   pluma.
+3. **Las 2 cosas de arriba entran por `apps/barrier-gateway`** (el worker que
+   ya existía para la pluma) — a propósito, sin proceso/túnel/token nuevo:
+   dos rutas más (`/capture-photos`, `/photo/:kind/:file`) en el mismo
+   servidor ya expuesto y ya protegido. El nombre le quedó corto (nació
+   siendo solo la pluma) — se re-evaluará cuando el alcance real se
+   estabilice, no antes.
 
 **Falta antes de que sirva de verdad** (checklist completo en
-`apps/photos-gateway/README.md`):
+`apps/barrier-gateway/README.md` § "Pendiente para fotos de visitas"):
 
-- Generar el token compartido y agregar el hostname nuevo al túnel/Access que
-  ya existe para la pluma.
 - `prisma db push` en `apps/api` (tabla nueva).
+- Rebuild + restart de `barrier-gateway` (no hay nada nuevo que instalar).
 
 ## Fases que siguen (todavía no arrancan)
 

@@ -47,6 +47,12 @@ const PUSH_TOKEN = process.env.PUSH_TOKEN ?? ''
 const TOTEM_GPIO_URL = process.env.TOTEM_GPIO_URL ?? ''
 const TOTEM_GPIO_TOKEN = process.env.TOTEM_GPIO_TOKEN ?? ''
 const TOTEM_TIMEOUT_MS = Number(process.env.TOTEM_TIMEOUT_MS ?? 5000)
+
+// apps/api en esta misma PC (LAN-local, nunca sale de 127.0.0.1) -- usado por
+// las rutas de fotos de abajo (/capture-photos, /photo/:kind/:file). Este
+// proceso sigue sin tocar el DVR ni la base de datos directamente, solo relaya.
+const API_BASE_URL = (process.env.API_BASE_URL ?? 'http://127.0.0.1:9100').replace(/\/+$/, '')
+const RELAY_TIMEOUT_MS = 10_000
 // Anti-rebote: dos aperturas legítimas seguidas no tienen sentido y una ráfaga sí
 // es sospechosa. La pluma tarda varios segundos en su ciclo.
 const MIN_INTERVAL_MS = Number(process.env.BARRIER_MIN_INTERVAL_MS ?? 4000)
@@ -158,18 +164,17 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body))
 }
 
+function checkPushToken(req: IncomingMessage): boolean {
+  return Boolean(PUSH_TOKEN) && req.headers['x-push-token'] === PUSH_TOKEN
+}
+
 // Mismo anti-rebote y mismo pulso que el camino de poll (`handleCommand`) --
 // comparten `lastOpenOkAt` a propósito: si el push ya abrió, un poll que
 // alcance a ver el mismo comando todavía PENDING (ventana angosta mientras
 // Vistara espera la respuesta del push) se rechaza como rebote en vez de
 // pulsar el tótem una segunda vez.
 async function handlePushRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  if (req.method !== 'POST' || req.url !== '/push') {
-    log('push_404', { method: req.method, url: req.url })
-    res.writeHead(404).end()
-    return
-  }
-  if (!PUSH_TOKEN || req.headers['x-push-token'] !== PUSH_TOKEN) {
+  if (!checkPushToken(req)) {
     log('push_401', {
       motivo: !PUSH_TOKEN ? 'sin_push_token_local' : 'token_no_coincide',
       recibido: typeof req.headers['x-push-token'] === 'string' ? '(presente)' : '(ausente)',
@@ -212,13 +217,100 @@ async function handlePushRequest(req: IncomingMessage, res: ServerResponse): Pro
   sendJson(res, 200, { opened: true })
 }
 
+// --- Fotos de visitas (2026-09-17) ---------------------------------------------
+// Se agregaron aquí, no como proceso/túnel/token aparte: el usuario prefiere
+// crecer este único gateway ya expuesto y ya protegido (mismo PUSH_TOKEN,
+// mismo hostname `barrier-push`) en vez de multiplicar procesos/tokens/hostnames
+// por cada capacidad nueva que necesite salir de la LAN -- re-evaluar el nombre
+// de este archivo/proceso más adelante, cuando el alcance real ya esté claro
+// (hoy ya no es solo "la pluma"). Este archivo nunca toca el DVR ni la DB
+// directamente -- solo relaya en LAN hacia apps/api, igual que ya hacía con el
+// tótem GPIO. Contrato completo: vistara/CLAUDE.md § "FOTOS DE VISITAS".
+async function handleCapturePhotos(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (!checkPushToken(req)) {
+    log('capture_401', { recibido: req.headers['x-push-token'] ? '(presente)' : '(ausente)' })
+    res.writeHead(401).end()
+    return
+  }
+
+  let raw: string
+  try {
+    raw = await readBody(req)
+  } catch {
+    sendJson(res, 400, { error: 'bad_body' })
+    return
+  }
+
+  let upstream: Response
+  try {
+    upstream = await fetch(`${API_BASE_URL}/api/guard-photos/capture-request`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: raw || '{}',
+      signal: AbortSignal.timeout(RELAY_TIMEOUT_MS),
+    })
+  } catch (e) {
+    log('capture_api_error', { error: e instanceof Error ? e.message : String(e) })
+    sendJson(res, 502, { error: 'api_unreachable' })
+    return
+  }
+
+  const bodyText = await upstream.text().catch(() => '')
+  log(upstream.ok ? 'capture_relayed' : 'capture_rejected', { httpStatus: upstream.status })
+  res.writeHead(upstream.status, { 'content-type': 'application/json' })
+  res.end(bodyText)
+}
+
+// GET /photo/:kind/:file -- Vistara pide el JPEG ya capturado (teclado o
+// guardia, ver PhotoServeController del lado de apps/api).
+async function handlePhoto(req: IncomingMessage, res: ServerResponse, path: string): Promise<void> {
+  if (!checkPushToken(req)) {
+    log('photo_401', { path })
+    res.writeHead(401).end()
+    return
+  }
+
+  let upstream: Response
+  try {
+    upstream = await fetch(`${API_BASE_URL}/api/vistara-photos${path.slice('/photo'.length)}`, {
+      signal: AbortSignal.timeout(RELAY_TIMEOUT_MS),
+    })
+  } catch (e) {
+    log('photo_api_error', { path, error: e instanceof Error ? e.message : String(e) })
+    res.writeHead(502).end()
+    return
+  }
+
+  if (!upstream.ok || !upstream.body) {
+    log('photo_not_found', { path, httpStatus: upstream.status })
+    res.writeHead(upstream.status).end()
+    return
+  }
+
+  log('photo_served', { path })
+  res.writeHead(200, { 'content-type': upstream.headers.get('content-type') ?? 'image/jpeg' })
+  res.end(Buffer.from(await upstream.arrayBuffer()))
+}
+
 function startPushServer(): void {
   if (!PUSH_TOKEN) {
     log('push_desactivado', { reason: 'PUSH_TOKEN no configurado -- solo poll de respaldo' })
     return
   }
   const server = createServer((req, res) => {
-    handlePushRequest(req, res).catch((e) => {
+    const path = (req.url ?? '').split('?')[0]
+    const dispatch =
+      req.method === 'POST' && path === '/push' ? handlePushRequest(req, res) :
+      req.method === 'POST' && path === '/capture-photos' ? handleCapturePhotos(req, res) :
+      req.method === 'GET' && path.startsWith('/photo/') ? handlePhoto(req, res, path) :
+      null
+
+    if (!dispatch) {
+      log('push_404', { method: req.method, url: req.url })
+      res.writeHead(404).end()
+      return
+    }
+    dispatch.catch((e) => {
       log('push_error', { error: e instanceof Error ? e.message : String(e) })
       if (!res.headersSent) res.writeHead(500).end()
     })
