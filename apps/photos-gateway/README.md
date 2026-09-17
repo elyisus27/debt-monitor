@@ -81,13 +81,11 @@ Ver [`.env.example`](.env.example). Lo esencial:
 | `PUSH_PORT` | puerto local (`127.0.0.1`) donde escucha este proceso, `8788` (distinto del `8787` de `barrier-gateway`) |
 | `PHOTOS_TOKEN` | secreto compartido con `PHOTO_TUNNEL_TOKEN` del lado de Vistara. Vacío = proceso completo desactivado |
 
-Además, en `apps/api/.env` (repo hermano de este mismo proceso, ver su propio
-`.env.example`): `GUARD_PHOTO_CHANNELS` -- lista de canales ISAPI del DVR que
-ve el carril de VISITANTES (donde el guardia registra), separada por comas.
-**Sin confirmar todavía cuáles son** -- el DVR de `CANALES_POR_PUERTA` en
-`dvr.service.ts` es el del carril de teclados/residentes, una cámara física
-distinta. Vacío = la captura de fotos de guardia queda deshabilitada (sin
-error, mismo criterio que `ISAPI_HOST` faltante) hasta que se confirme.
+El carril de visitantes usa las MISMAS cámaras que el carril de
+teclados/residentes (confirmado con el usuario, 2026-09-17) -- `apps/api`
+reusa `DvrService.canalesPara('entrada')` tal cual, sin ninguna config nueva
+del lado del DVR. Solo el storage queda separado (`data/guard-photos/` en vez
+de `data/event-photos/`), no la fuente de las fotos.
 
 ## Log
 
@@ -148,10 +146,6 @@ agregar este hostname a la política existente, no hace falta una nueva) -- el
 
 ## Pendiente antes de producción
 
-- [ ] **Confirmar `GUARD_PHOTO_CHANNELS`** (en `apps/api/.env`) -- qué canal(es)
-      ISAPI del DVR corresponden al carril de VISITANTES. Sin esto, el resto
-      del feature funciona (Vistara pide la captura, la fila se crea) pero
-      `photoPaths` siempre sale `[]` y no hay foto que mostrar.
 - [ ] Generar `PHOTOS_TOKEN` (cadena aleatoria larga) y ponerlo aquí Y en
       `PHOTO_TUNNEL_TOKEN` del lado de Vistara (Secret Manager de `vistara-api`).
 - [ ] Agregar el hostname `photos-push.condominioreserva.com` al túnel

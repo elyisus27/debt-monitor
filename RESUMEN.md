@@ -214,7 +214,9 @@ piezas, cada una en su rama (`feat/vistara-guard-photos` aquí,
    demanda cuando alguien abre esa visita en su web.
 2. **Fotos de un registro de guardia (nuevo, carril de visitantes)** — cuando
    el guardia guarda una entrada en Vistara, nos avisa y tomamos 3 fotos del
-   DVR, en un apartado propio (`data/guard-photos/`, tabla
+   DVR (mismas cámaras que ya usamos para los teclados — confirmado que el
+   carril de visitantes se ve con el mismo equipo, no hay cámara aparte), en
+   un apartado propio de storage (`data/guard-photos/`, tabla
    `guard_visit_photos`) — nunca mezclado con los cruces de teclado de arriba.
 3. **`apps/photos-gateway`** (proceso nuevo, mismo patrón que
    `apps/barrier-gateway` de la pluma) — es la única puerta desde internet
@@ -224,9 +226,6 @@ piezas, cada una en su rama (`feat/vistara-guard-photos` aquí,
 **Falta antes de que sirva de verdad** (checklist completo en
 `apps/photos-gateway/README.md`):
 
-- Confirmar en qué canal(es) del DVR se ve la cámara del carril de
-  VISITANTES (donde el guardia registra) — es una cámara física distinta a
-  la de los teclados, no se puede adivinar del código.
 - Generar el token compartido y agregar el hostname nuevo al túnel/Access que
   ya existe para la pluma.
 - `prisma db push` en `apps/api` (tabla nueva).

@@ -88,15 +88,17 @@ export class DvrService {
   }
 
   /**
-   * Registro de guardia en Vistara (carril de visitantes) -- APARTADO SEPARADO
-   * de capturarFotos()/data/event-photos, a propósito (ver comentario del
-   * constructor). `canales` viene de GUARD_PHOTO_CHANNELS (config del operador,
-   * no del mapeo fijo de arriba -- ese es para el carril de teclados/residentes,
-   * una cámara/DVR físicamente distinta). Vacío = deshabilitado, sin error.
-   * Devuelve las rutas relativas bajo data/guard-photos/.
+   * Registro de guardia en Vistara (carril de visitantes) -- mismas cámaras que
+   * `capturarFotos('entrada', ...)` (confirmado con el usuario, 2026-09-17: no
+   * hay cámara/DVR distinta para el carril de visitantes, son las mismas 3
+   * vistas). Lo único APARTADO a propósito es el STORAGE -- `data/guard-photos/`
+   * en vez de `data/event-photos/`, para no mezclar el registro de guardia con
+   * los cruces de teclado (ver comentario del constructor). Devuelve las rutas
+   * relativas bajo data/guard-photos/.
    */
-  async capturarFotosGuardia(visitId: string, canales: string[]): Promise<string[]> {
-    if (!this.habilitado || canales.length === 0) return [];
+  async capturarFotosGuardia(visitId: string): Promise<string[]> {
+    if (!this.habilitado) return [];
+    const canales = this.canalesPara('entrada');
 
     const rutas: string[] = [];
     for (const canal of canales) {

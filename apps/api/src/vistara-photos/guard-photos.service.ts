@@ -2,20 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DvrService } from '../dvr/dvr.service';
 
-// Canales del carril de VISITANTES (donde el guardia registra en Vistara) --
-// físicamente distintos de CANALES_POR_PUERTA en dvr.service.ts, que es el
-// carril de teclados/residentes. Config del operador, NO un mapeo fijo -- no
-// hay forma de adivinar el número de canal correcto desde el código; vacío =
-// feature deshabilitada (sin error), mismo criterio que ISAPI_HOST faltante.
-// Ver apps/photos-gateway/README.md § "Pendiente antes de producción".
-function canalesGuardia(): string[] {
-  const raw = process.env.GUARD_PHOTO_CHANNELS ?? '';
-  return raw
-    .split(',')
-    .map((c) => c.trim())
-    .filter(Boolean);
-}
-
 export interface CaptureRequest {
   visitId: string;
   tenantId: string;
@@ -59,22 +45,18 @@ export class GuardPhotosService {
   }
 
   private async capturar(visitId: string): Promise<void> {
-    const canales = canalesGuardia();
-    const rutas = await this.dvr.capturarFotosGuardia(visitId, canales);
+    const rutas = await this.dvr.capturarFotosGuardia(visitId);
     const capturedAt = new Date().toISOString();
 
     if (rutas.length === 0) {
-      // Sin canales configurados, o el DVR falló las 3 veces -- nada que
-      // mandarle a Vistara. 'skipped' para que el sync no lo reintente a lo
-      // infinito por un capítulo que ya terminó (a diferencia de 'error', que
-      // sí implica reintentar).
+      // ISAPI_HOST/USER/PASS sin configurar, o el DVR falló las 3 veces --
+      // nada que mandarle a Vistara. 'skipped' para que el sync no lo
+      // reintente a lo infinito por un capítulo que ya terminó (a diferencia
+      // de 'error', que sí implica reintentar).
       await this.prisma.guardVisitPhoto.update({
         where: { visitId },
         data: { photoPaths: '[]', capturedAt, vistaraStatus: 'skipped' },
       });
-      if (canales.length === 0) {
-        this.logger.warn(`GUARD_PHOTO_CHANNELS vacío -- captura de fotos de guardia deshabilitada (visita ${visitId})`);
-      }
       return;
     }
 
