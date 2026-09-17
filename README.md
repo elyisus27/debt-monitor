@@ -86,6 +86,8 @@ debt-monitor/
   apps/
     api/                    # NestJS + Prisma -- ingesta de eventos, fotos DVR, API real
     web/                    # Next.js + React -- la pantalla (filtros, KPIs, visor, captura manual)
+    barrier-gateway/        # worker LAN -- push/poll de apertura de pluma desde Vistara
+    photos-gateway/         # worker LAN -- push de fotos de registros de guardia + servir fotos a Vistara
   developersDocs/           # mkdocs -- arquitectura, hallazgos, fases
   docs/hikvision/           # manuales oficiales ISAPI + hccgw OpenAPI
   tools/

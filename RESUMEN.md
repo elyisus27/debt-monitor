@@ -200,6 +200,37 @@ el visor de `apps/web` trae un campo para capturarla a mano cuando el
 automático no pudo (mismo caso de las luces). Queda marcada como
 `manual` en el listado, para diferenciarla de una lectura real.
 
+## Fotos para Vistara (2026-09-17) — código listo, falta config del sitio
+
+Vistara quería mostrar, en cada registro de su módulo de Vigilancia, la foto
+del cruce — sin duplicar el almacenamiento en la nube (serían 3 fotos por
+cada visita, entrada rápida y todo, un costo recurrente real). Se armó dos
+piezas, cada una en su rama (`feat/vistara-guard-photos` aquí,
+`feat/visit-photos-debt-monitor` en `vistara`):
+
+1. **Fotos de teclados (las que ya tomamos) — enlazadas, no copiadas.**
+   `sync-vistara.service.ts` ya manda la referencia de cada foto (no la foto
+   en sí) en el mismo aviso que ya hace por cada cruce. Vistara la pide bajo
+   demanda cuando alguien abre esa visita en su web.
+2. **Fotos de un registro de guardia (nuevo, carril de visitantes)** — cuando
+   el guardia guarda una entrada en Vistara, nos avisa y tomamos 3 fotos del
+   DVR, en un apartado propio (`data/guard-photos/`, tabla
+   `guard_visit_photos`) — nunca mezclado con los cruces de teclado de arriba.
+3. **`apps/photos-gateway`** (proceso nuevo, mismo patrón que
+   `apps/barrier-gateway` de la pluma) — es la única puerta desde internet
+   para las 2 cosas de arriba, vía el mismo túnel Cloudflare que ya usa la
+   pluma.
+
+**Falta antes de que sirva de verdad** (checklist completo en
+`apps/photos-gateway/README.md`):
+
+- Confirmar en qué canal(es) del DVR se ve la cámara del carril de
+  VISITANTES (donde el guardia registra) — es una cámara física distinta a
+  la de los teclados, no se puede adivinar del código.
+- Generar el token compartido y agregar el hostname nuevo al túnel/Access que
+  ya existe para la pluma.
+- `prisma db push` en `apps/api` (tabla nueva).
+
 ## Fases que siguen (todavía no arrancan)
 
 - **Padrón y patrones** — cruzar auto↔casa↔NIP, detectar mal uso.
