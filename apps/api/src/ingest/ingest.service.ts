@@ -132,7 +132,7 @@ export class IngestService {
     // Mandarlo a Vistara ya, sin esperar el siguiente tick de 20s: Vistara calcula el
     // retraso de castigo de la pluma desde la hora del cruce, así que cada segundo de
     // espera aquí se come parte de ese retraso.
-    this.syncVistara.kick();
+    this.syncVistara.kick(eventId);
   }
 
   stats() {

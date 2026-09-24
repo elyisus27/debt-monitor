@@ -27,6 +27,19 @@ const INITIAL_BACKOFF_SECONDS = 30;
 const MAX_BACKOFF_SECONDS = 300;
 const HTTP_TIMEOUT_MS = 8_000;
 
+// Apertura de la pluma del carril de morosos (cuando Vistara responde openBarrier).
+// El castigo lo cuenta ESTE proceso con setTimeout (reloj monótono), nunca con una hora:
+// un cambio de hora de la PC o de horario de verano no lo mueve. El pulso va directo al
+// tótem por la LAN, sin pasar por Vistara ni por el túnel.
+// Solo se abre si Vistara contesta dentro de FRESH_WINDOW_MS desde que se leyó la placa
+// de ESTE cruce en ESTE proceso: un evento que sale de la cola de reintentos (Vistara o
+// la red estuvieron caídos) ya no abre solo -- el vehículo pudo irse y abrir le regalaría
+// la entrada al de atrás. Ese caso lo resuelve el guardia.
+const FRESH_WINDOW_MS = 60_000;
+const DEFAULT_OPEN_DELAY_SECONDS = 30;
+const MAX_OPEN_DELAY_SECONDS = 120;
+const TOTEM_TIMEOUT_MS = 5_000;
+
 function nextBackoffSeconds(attempts: number): number {
   return Math.min(INITIAL_BACKOFF_SECONDS * 2 ** attempts, MAX_BACKOFF_SECONDS);
 }
@@ -38,6 +51,13 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
   private running = false;
   private warnedMissingConfig = false;
   private kickPending = false;
+  // eventId -> performance.now() de cuando se terminó de leer su placa (ver kick()).
+  private readonly freshAt = new Map<number, number>();
+  private readonly scheduledOpens = new Set<number>();
+  private warnedMissingTotem = false;
+
+  private readonly totemUrl = process.env.TOTEM_GPIO_URL ?? '';
+  private readonly totemToken = process.env.TOTEM_GPIO_TOKEN ?? '';
 
   private readonly baseUrl = process.env.VISTARA_API_BASE_URL?.replace(/\/$/, '') ?? '';
   private readonly tenantSlug = process.env.VISTARA_TENANT_SLUG ?? '';
@@ -69,7 +89,17 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
 
   // Sincroniza de inmediato (llamado al terminar de leer la placa de un cruce). Si ya
   // hay un tick corriendo, se repite en cuanto termine para no perder el evento nuevo.
-  kick() {
+  //
+  // eventId (opcional): marca ese cruce como "recién leído" para que pueda abrir la
+  // pluma si Vistara lo autoriza (ver FRESH_WINDOW_MS).
+  kick(eventId?: number) {
+    if (eventId != null) {
+      this.freshAt.set(eventId, performance.now());
+      // limpieza: nada en el mapa vive más que la ventana
+      for (const [id, t] of this.freshAt) {
+        if (performance.now() - t > FRESH_WINDOW_MS) this.freshAt.delete(id);
+      }
+    }
     if (this.running) {
       this.kickPending = true;
       return;
@@ -122,6 +152,50 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  // Vistara autorizó abrir tras el castigo. Espera con setTimeout y pulsa el tótem.
+  private scheduleOpen(eventId: number, delaySeconds: number | undefined) {
+    const readAt = this.freshAt.get(eventId);
+    this.freshAt.delete(eventId);
+    if (readAt == null || performance.now() - readAt > FRESH_WINDOW_MS) {
+      this.logger.warn(`evento ${eventId}: autorizado pero llegó tarde, NO se abre la pluma (lo decide el guardia)`);
+      return;
+    }
+    if (this.scheduledOpens.has(eventId)) return;
+    if (!this.totemUrl) {
+      if (!this.warnedMissingTotem) {
+        this.warnedMissingTotem = true;
+        this.logger.warn('TOTEM_GPIO_URL sin configurar -- no se puede abrir la pluma del carril de morosos');
+      }
+      return;
+    }
+    const delay =
+      typeof delaySeconds === 'number' && delaySeconds >= 0
+        ? Math.min(delaySeconds, MAX_OPEN_DELAY_SECONDS)
+        : DEFAULT_OPEN_DELAY_SECONDS;
+    this.scheduledOpens.add(eventId);
+    this.logger.log(`evento ${eventId}: pluma programada en ${delay}s (castigo)`);
+    setTimeout(() => {
+      this.scheduledOpens.delete(eventId);
+      this.pulseTotem(eventId).catch(() => undefined);
+    }, delay * 1000);
+  }
+
+  private async pulseTotem(eventId: number) {
+    const headers: Record<string, string> = {};
+    if (this.totemToken) headers['X-Gpio-Token'] = this.totemToken;
+    try {
+      const r = await fetch(this.totemUrl, {
+        method: 'POST',
+        headers,
+        signal: AbortSignal.timeout(TOTEM_TIMEOUT_MS),
+      });
+      if (r.ok) this.logger.log(`evento ${eventId}: pluma abierta`);
+      else this.logger.error(`evento ${eventId}: el tótem respondió HTTP ${r.status}`);
+    } catch (err) {
+      this.logger.error(`evento ${eventId}: no se pudo abrir la pluma: ${(err as Error).message}`);
+    }
+  }
+
   private async sendEvent(ev: {
     id: number;
     puerta: string;
@@ -168,6 +242,12 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
       if (res.ok) {
         // 'matched' | 'unmatched' | 'illegible' | 'duplicate' -- todas 2xx, todas
         // significan "Vistara ya lo tiene", 'duplicate' incluido (idempotencia).
+        const body = (await res.json().catch(() => null)) as
+          | { openBarrier?: boolean; openDelaySeconds?: number }
+          | null;
+        if (ev.puerta === 'entrada' && body?.openBarrier) {
+          this.scheduleOpen(ev.id, body.openDelaySeconds);
+        }
         return { ok: true };
       }
       const body = await res.text().catch(() => '');

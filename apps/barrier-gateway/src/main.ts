@@ -102,39 +102,6 @@ async function pulseTotem(): Promise<{ ok: true } | { ok: false; error: string }
 interface BarrierCommand {
   id: string
   reason: string | null
-  // Apertura programada (castigo del carril de morosos): no abrir antes de esta hora.
-  // null/ausente = abrir ya. Vistara (Cloud Run) no puede esperar después de responder,
-  // así que la espera la hace este worker en la LAN.
-  notBefore?: string | null
-}
-
-// Tope de espera para una apertura programada: si Vistara manda una hora absurda
-// (reloj desfasado, bug), no dejar un timer colgado por minutos.
-const MAX_SCHEDULE_MS = 120_000
-const scheduled = new Set<string>()
-
-// Ms que faltan para notBefore (0 si ya pasó o no hay). null si excede el tope.
-function msUntil(notBefore: string | null | undefined): number | null {
-  if (!notBefore) return 0
-  const t = Date.parse(notBefore)
-  if (Number.isNaN(t)) return 0
-  const ms = t - Date.now()
-  if (ms <= 0) return 0
-  return ms > MAX_SCHEDULE_MS ? null : ms
-}
-
-// Programa handleCommand para notBefore. Idempotente por id (push y poll pueden ver
-// el mismo comando).
-function schedule(cmd: BarrierCommand, ms: number): void {
-  if (scheduled.has(cmd.id)) return
-  scheduled.add(cmd.id)
-  log('programado', { id: cmd.id, reason: cmd.reason, enMs: ms })
-  setTimeout(() => {
-    scheduled.delete(cmd.id)
-    handleCommand({ ...cmd, notBefore: null }).catch((e) =>
-      log('programado_error', { id: cmd.id, error: e instanceof Error ? e.message : String(e) }),
-    )
-  }, ms)
 }
 
 async function pollCommands(): Promise<BarrierCommand[]> {
@@ -163,16 +130,6 @@ async function ack(id: string, opened: boolean): Promise<void> {
 }
 
 async function handleCommand(cmd: BarrierCommand): Promise<void> {
-  const wait = msUntil(cmd.notBefore)
-  if (wait === null) {
-    log('rechazado_hora_invalida', { id: cmd.id, notBefore: cmd.notBefore })
-    await ack(cmd.id, false)
-    return
-  }
-  if (wait > 0) {
-    schedule(cmd, wait)
-    return
-  }
   const now = Date.now()
   if (now - lastOpenOkAt < MIN_INTERVAL_MS) {
     log('rechazado_rebote', { id: cmd.id, reason: cmd.reason })
@@ -226,7 +183,7 @@ async function handlePushRequest(req: IncomingMessage, res: ServerResponse): Pro
     return
   }
 
-  let payload: { id?: unknown; reason?: unknown; notBefore?: unknown }
+  let payload: { id?: unknown; reason?: unknown }
   try {
     const raw = await readBody(req)
     payload = JSON.parse(raw || '{}') as typeof payload
@@ -238,21 +195,6 @@ async function handlePushRequest(req: IncomingMessage, res: ServerResponse): Pro
   const reason = typeof payload.reason === 'string' ? payload.reason : null
   if (!id) {
     sendJson(res, 400, { error: 'missing_id' })
-    return
-  }
-
-  // Apertura programada: se contesta ya ({scheduled:true}) y se abre a la hora; el
-  // resultado real le llega a Vistara por el ack de handleCommand.
-  const notBefore = typeof payload.notBefore === 'string' ? payload.notBefore : null
-  const wait = msUntil(notBefore)
-  if (wait === null) {
-    log('push_rechazado_hora_invalida', { id, notBefore })
-    sendJson(res, 200, { opened: false })
-    return
-  }
-  if (wait > 0) {
-    schedule({ id, reason, notBefore }, wait)
-    sendJson(res, 200, { opened: false, scheduled: true })
     return
   }
 
