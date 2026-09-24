@@ -3,5 +3,6 @@ import { SyncVistaraService } from './sync-vistara.service';
 
 @Module({
   providers: [SyncVistaraService],
+  exports: [SyncVistaraService],
 })
 export class SyncVistaraModule {}

@@ -194,3 +194,11 @@ Nada de túnel/Access/token nuevo -- reusa todo lo ya listado arriba. Solo:
       `pnpm --filter @debt-monitor/barrier-gateway build` + `nssm restart barrier-gateway`.
 - [ ] Probar un registro de guardia desde Vistara Web y confirmar en el log
       `capture_relayed` (no `capture_api_error`).
+
+## Apertura programada (`notBefore`, 2026-09-24)
+
+Para el castigo del carril de morosos, Vistara puede mandar un comando con `notBefore`
+(ISO). El worker contesta `{ "opened": false, "scheduled": true }` de inmediato y pulsa
+el tótem a esa hora (tope de espera 120 s; más que eso se rechaza). El resultado real
+le llega a Vistara por el ack normal. Aplica igual a comandos del push y del poll.
+Vistara no puede esperar él mismo: Cloud Run solo da CPU mientras dura la petición.

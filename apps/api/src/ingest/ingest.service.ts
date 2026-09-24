@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { SyncVistaraService } from '../sync-vistara/sync-vistara.service';
 import { EventsService } from '../events/events.service';
 import { DvrService, CANAL_PLACAS } from '../dvr/dvr.service';
 import { PlateService } from '../plate/plate.service';
@@ -58,6 +59,7 @@ export class IngestService {
     private readonly events: EventsService,
     private readonly dvr: DvrService,
     private readonly plate: PlateService,
+    private readonly syncVistara: SyncVistaraService,
   ) {}
 
   async procesar(body: Buffer) {
@@ -127,6 +129,10 @@ export class IngestService {
     if (resultado?.plate) {
       this.logger.log(`PLACA (evento ${eventId}): ${resultado.plate} (conf=${resultado.confidence})`);
     }
+    // Mandarlo a Vistara ya, sin esperar el siguiente tick de 20s: Vistara calcula el
+    // retraso de castigo de la pluma desde la hora del cruce, así que cada segundo de
+    // espera aquí se come parte de ese retraso.
+    this.syncVistara.kick();
   }
 
   stats() {

@@ -37,6 +37,7 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
   private timer: NodeJS.Timeout | null = null;
   private running = false;
   private warnedMissingConfig = false;
+  private kickPending = false;
 
   private readonly baseUrl = process.env.VISTARA_API_BASE_URL?.replace(/\/$/, '') ?? '';
   private readonly tenantSlug = process.env.VISTARA_TENANT_SLUG ?? '';
@@ -66,9 +67,20 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
     return ok;
   }
 
+  // Sincroniza de inmediato (llamado al terminar de leer la placa de un cruce). Si ya
+  // hay un tick corriendo, se repite en cuanto termine para no perder el evento nuevo.
+  kick() {
+    if (this.running) {
+      this.kickPending = true;
+      return;
+    }
+    this.tick().catch((err) => this.logger.error(`kick() falló: ${err.message}`));
+  }
+
   private async tick() {
     if (!this.configured() || this.running) return;
     this.running = true;
+    this.kickPending = false;
     try {
       const nowIso = new Date().toISOString();
       const pending = await this.prisma.accessEvent.findMany({
@@ -106,6 +118,7 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
       }
     } finally {
       this.running = false;
+      if (this.kickPending) this.kick();
     }
   }
 
