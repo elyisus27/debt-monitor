@@ -237,8 +237,8 @@ piezas, cada una en su rama (`feat/vistara-guard-photos` aquí,
 - **Panel de administrador** — pantalla completa para autorizar/restringir
   y exportar evidencia.
 - **Conexión con Vistara — código listo (2026-09-12), falta configurar y desplegar.**
-  Cada cruce de **entrada** (nunca salida — Vistara solo acepta ese sentido por ahora)
-  se manda a `POST /visits/plate-events` de Vistara con el domicilio (`casaUnidad`)
+  Cada cruce de **entrada y salida** (desde 2026-09-24: la salida libera el cajón del
+  domicilio moroso en Vistara, `direction='OUT'`) se manda a `POST /visits/plate-events` de Vistara con el domicilio (`casaUnidad`)
   y la placa leída, autenticado como un Device dedicado (`kind=DELINQUENT_KEYPAD`) que
   ya existe del lado de Vistara ("Teclado Morosos", tenant `la-reserva`). Del lado de
   Vistara, ese domicilio resuelve la unidad directo (sin depender de que la placa

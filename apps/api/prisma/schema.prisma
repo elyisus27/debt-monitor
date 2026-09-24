@@ -38,8 +38,9 @@ model AccessEvent {
   // Conexión con Vistara (2026-09) -- cola durable de entrega, no fire-and-forget.
   // 'pending' = por mandar; 'sent' = Vistara lo confirmó (o respondió 'duplicate',
   // mismo trato -- ya está allá); 'error' = falló, se reintenta con backoff;
-  // 'skipped' = puerta='salida' o eventos previos a esta feature, nunca se manda
-  // (Vistara solo acepta direction='IN'). Ver SyncVistaraService.
+  // 'skipped' = eventos previos a esta feature (incluye salidas anteriores al
+  // 2026-09-24, cuando Vistara aún no aceptaba direction='OUT'), nunca se manda.
+  // Ver SyncVistaraService.
   vistaraStatus   String   @default("pending") @map("vistara_status")
   vistaraAttempts Int      @default(0) @map("vistara_attempts")
   vistaraError    String?  @map("vistara_error")

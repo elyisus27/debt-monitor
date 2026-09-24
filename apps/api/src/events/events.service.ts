@@ -233,10 +233,9 @@ export class EventsService {
         data: {
           ...data,
           receivedAt: new Date().toISOString(),
-          // Vistara solo acepta direction='IN' -- un evento de salida nunca se
-          // manda, se marca 'skipped' desde ya para que no se quede en 'pending'
-          // para siempre (ver SyncVistaraService).
-          ...(data.puerta !== 'entrada' ? { vistaraStatus: 'skipped' } : {}),
+          // Entradas y salidas se mandan a Vistara (las salidas liberan el cajón
+          // del domicilio moroso, ver SyncVistaraService). Los 'skipped' viejos de
+          // salidas se quedan así a propósito: no se reenvían cruces previos.
         },
       });
     } catch (err) {

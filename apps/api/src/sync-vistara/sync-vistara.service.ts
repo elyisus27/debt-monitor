@@ -73,7 +73,7 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
       const nowIso = new Date().toISOString();
       const pending = await this.prisma.accessEvent.findMany({
         where: {
-          puerta: 'entrada',
+          // Entradas y salidas: las salidas liberan cajón en Vistara (Acceso a Morosos).
           vistaraStatus: { in: ['pending', 'error'] },
           photoPaths: { not: null },
           OR: [{ vistaraNextTry: null }, { vistaraNextTry: { lte: nowIso } }],
@@ -111,6 +111,7 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
 
   private async sendEvent(ev: {
     id: number;
+    puerta: string;
     casaUnidad: string;
     timestamp: string;
     plateText: string | null;
@@ -134,7 +135,7 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
       detectedAt: ev.timestamp,
       plate: ev.plateText ?? '',
       confidence: ev.plateConfidence ?? undefined,
-      direction: 'IN' as const,
+      direction: ev.puerta === 'entrada' ? ('IN' as const) : ('OUT' as const),
       domicileCode: ev.casaUnidad,
       ...(photoRefs ? { photoRefs } : {}),
     };
