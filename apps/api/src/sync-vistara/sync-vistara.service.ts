@@ -40,6 +40,14 @@ const DEFAULT_OPEN_DELAY_SECONDS = 30;
 const MAX_OPEN_DELAY_SECONDS = 120;
 const TOTEM_TIMEOUT_MS = 5_000;
 
+// vehicle_label del YOLO (clases COCO car/motorcycle/bus/truck) -> tipo de cajón de Vistara.
+function toVehicleKind(label: string | null): 'CAR' | 'MOTORCYCLE' | null {
+  if (!label) return null;
+  if (label === 'motorcycle') return 'MOTORCYCLE';
+  if (label === 'car' || label === 'truck' || label === 'bus') return 'CAR';
+  return null;
+}
+
 function nextBackoffSeconds(attempts: number): number {
   return Math.min(INITIAL_BACKOFF_SECONDS * 2 ** attempts, MAX_BACKOFF_SECONDS);
 }
@@ -203,6 +211,7 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
     timestamp: string;
     plateText: string | null;
     plateConfidence: number | null;
+    vehicleLabel: string | null;
     photoPaths: string | null;
   }): Promise<{ ok: boolean; error?: string }> {
     // Fotos ya capturadas ANTES de este punto (photoPaths != null es justo la
@@ -224,6 +233,9 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
       confidence: ev.plateConfidence ?? undefined,
       direction: ev.puerta === 'entrada' ? ('IN' as const) : ('OUT' as const),
       domicileCode: ev.casaUnidad,
+      // Tipo que detectó YOLO aunque no haya leído la placa: Vistara identifica por tipo
+      // contra los vehículos del domicilio marcados "puede entrar sin lectura de placa".
+      ...(toVehicleKind(ev.vehicleLabel) ? { vehicleKind: toVehicleKind(ev.vehicleLabel) } : {}),
       ...(photoRefs ? { photoRefs } : {}),
     };
 

@@ -238,7 +238,7 @@ piezas, cada una en su rama (`feat/vistara-guard-photos` aquí,
   y exportar evidencia.
 - **Conexión con Vistara — código listo (2026-09-12), falta configurar y desplegar.**
   Cada cruce de **entrada y salida** (desde 2026-09-24: la salida libera el cajón del
-  domicilio moroso en Vistara, `direction='OUT'`) se manda en cuanto termina la lectura de placa (no espera el tick de 20 s). Si Vistara responde `openBarrier`, debt-api espera `openDelaySeconds` (castigo, con su propio temporizador) y pulsa el tótem directo por la LAN (`TOTEM_GPIO_URL` en `apps/api/.env`); si la respuesta llega más de 60 s después de leer la placa, no abre a `POST /visits/plate-events` de Vistara con el domicilio (`casaUnidad`)
+  domicilio moroso en Vistara, `direction='OUT'`) se manda en cuanto termina la lectura de placa (no espera el tick de 20 s). Si Vistara responde `openBarrier`, debt-api espera `openDelaySeconds` (castigo, con su propio temporizador) y pulsa el tótem directo por la LAN (`TOTEM_GPIO_URL` en `apps/api/.env`); si la respuesta llega más de 60 s después de leer la placa, no abre. También manda `vehicleKind` (carro/moto según YOLO, aunque no haya leído la placa) para que Vistara identifique por tipo a `POST /visits/plate-events` de Vistara con el domicilio (`casaUnidad`)
   y la placa leída, autenticado como un Device dedicado (`kind=DELINQUENT_KEYPAD`) que
   ya existe del lado de Vistara ("Teclado Morosos", tenant `la-reserva`). Del lado de
   Vistara, ese domicilio resuelve la unidad directo (sin depender de que la placa
