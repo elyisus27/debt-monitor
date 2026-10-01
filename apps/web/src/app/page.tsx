@@ -195,6 +195,12 @@ export default function Pagina() {
           >
             Estadísticas
           </Link>
+          <Link
+            href="/contingencia"
+            style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-neutral-500)', padding: '6px 12px', borderRadius: 6 }}
+          >
+            Contingencia
+          </Link>
         </nav>
         <div className={styles.encabezadoDer}>
           <span className={styles.punto} />

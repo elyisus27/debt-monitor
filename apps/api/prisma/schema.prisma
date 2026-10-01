@@ -82,3 +82,107 @@ model GuardVisitPhoto {
   @@index([vistaraStatus])
   @@map("guard_visit_photos")
 }
+
+// ─── Bitácora de contingencia (2026-10) ─────────────────────────────────────
+// Cuando se cae el internet de caseta, Vistara no está disponible: ni se registran
+// visitas ni se abre la pluma. Esta bitácora LOCAL es el respaldo: los guardias
+// capturan aquí (apps/web /contingencia) y la pluma se abre directo por la LAN.
+// Los campos espejean el modelo Visit de Vistara (mismos nombres/valores) para que
+// un sincronizador futuro las suba post mortem sin traducir nada. Diferencias:
+//   - domicileCode en vez de unitId: el texto "972-05" (unitLabel de Vistara). El
+//     sincronizador lo resuelve igual que los cruces del teclado (normalizeDomicileCode).
+//     unitId se guarda también cuando la visita se capturó contra el directorio local.
+//   - registeredBy es el usuario LOCAL (CONTINGENCIA_USERS), no un User de Vistara.
+//   - SQLite sin enums: visitType/accessType/status son String con los valores de
+//     los enums de Vistara (VisitType, AccessType, VisitStatus).
+model ContingencyVisit {
+  id                  Int     @id @default(autoincrement())
+  domicileCode        String  @map("domicile_code")
+  unitId              String? @map("unit_id") // id de Unit en Vistara (directorio local), si se conoce
+  visitorName         String  @map("visitor_name")
+  visitType           String  @map("visit_type") // VisitType de Vistara
+  accessType          String  @map("access_type") // 'VEHICLE' | 'PEDESTRIAN'
+  plate               String?
+  residentId          String? @map("resident_id") // User de Vistara a quien se avisó (directorio local)
+  residentName        String? @map("resident_name") // copia: el directorio se reemplaza cada día
+  notes               String?
+  stopCount           Int?    @map("stop_count")
+  status              String  @default("ACTIVE") // 'ACTIVE' | 'EXITED'
+  enteredAt           String  @map("entered_at")
+  exitedAt            String? @map("exited_at")
+  durationMinutes     Int?    @map("duration_minutes")
+  registeredBy        String  @map("registered_by") // usuario local
+  authorizationMethod String  @default("CONTINGENCY_LOCAL") @map("authorization_method") // 'CONTINGENCY_LOCAL' | 'EMERGENCY_MANUAL_OPEN'
+  barrierTriggeredAt  String? @map("barrier_triggered_at") // primera apertura exitosa
+  createdAt           String  @map("created_at")
+
+  // Sincronización a Vistara (pendiente de implementar) -- mismo patrón vistara*
+  // de access_events: 'pending' | 'sent' | 'error' | 'skipped'.
+  vistaraStatus   String  @default("pending") @map("vistara_status")
+  vistaraVisitId  String? @map("vistara_visit_id") // id de la Visit creada en Vistara
+  vistaraAttempts Int     @default(0) @map("vistara_attempts")
+  vistaraError    String? @map("vistara_error")
+  vistaraSentAt   String? @map("vistara_sent_at")
+  vistaraNextTry  String? @map("vistara_next_try")
+
+  barrierOpens ContingencyBarrierOpen[]
+
+  @@index([enteredAt])
+  @@index([status])
+  @@index([vistaraStatus])
+  @@map("contingency_visits")
+}
+
+// Cada intento de abrir la pluma desde la bitácora de contingencia -- auditoría de
+// quién abrió, cuándo, para qué visita, y qué respondió el tótem.
+model ContingencyBarrierOpen {
+  id          Int              @id @default(autoincrement())
+  visitId     Int?              @map("visit_id") // null: apertura de emergencia que falló antes de crear su visita
+  requestedBy String            @map("requested_by")
+  requestedAt String            @map("requested_at")
+  emergency   Boolean           @default(false)
+  opened      Boolean
+  error       String?
+  visit       ContingencyVisit? @relation(fields: [visitId], references: [id])
+
+  @@index([visitId])
+  @@index([requestedAt])
+  @@map("contingency_barrier_opens")
+}
+
+// Directorio local (domicilios + residentes) bajado de Vistara (GET /caseta/directory)
+// cada DIRECTORY_REFRESH_HOURS. Cada descarga REEMPLAZA todo (no mezcla): quien se
+// mudó desaparece en la siguiente. Si no hay internet, se conserva la última copia.
+model DirectoryUnit {
+  id           String              @id // id de Unit en Vistara
+  label        String              @unique // "972-05" -- unitLabel de Vistara
+  isDelinquent Boolean             @default(false) @map("is_delinquent")
+  residents    DirectoryResident[]
+
+  @@map("directory_units")
+}
+
+model DirectoryResident {
+  id             String        @id // id de User en Vistara
+  unitId         String        @map("unit_id")
+  name           String
+  role           String
+  phone          String?
+  phoneHome      String?       @map("phone_home")
+  phoneSecondary String?       @map("phone_secondary")
+  unit           DirectoryUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([unitId])
+  @@map("directory_residents")
+}
+
+// Una sola fila (id=1): cuándo se bajó el directorio y cómo salió el último intento.
+model DirectorySync {
+  id            Int     @id @default(1)
+  generatedAt   String? @map("generated_at") // generatedAt que reportó Vistara
+  syncedAt      String? @map("synced_at") // última descarga EXITOSA
+  lastAttemptAt String? @map("last_attempt_at")
+  lastError     String? @map("last_error")
+
+  @@map("directory_sync")
+}

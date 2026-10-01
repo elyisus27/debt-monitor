@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TotemService } from '../totem/totem.service';
 import { basename } from 'node:path';
 
 // Conexión con Vistara -- manda cada cruce de ENTRADA por el teclado de morosos
@@ -38,7 +39,6 @@ const HTTP_TIMEOUT_MS = 8_000;
 const FRESH_WINDOW_MS = 60_000;
 const DEFAULT_OPEN_DELAY_SECONDS = 30;
 const MAX_OPEN_DELAY_SECONDS = 120;
-const TOTEM_TIMEOUT_MS = 5_000;
 
 // vehicle_label del YOLO (clases COCO car/motorcycle/bus/truck) -> tipo de cajón de Vistara.
 function toVehicleKind(label: string | null): 'CAR' | 'MOTORCYCLE' | null {
@@ -64,14 +64,14 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
   private readonly scheduledOpens = new Set<number>();
   private warnedMissingTotem = false;
 
-  private readonly totemUrl = process.env.TOTEM_GPIO_URL ?? '';
-  private readonly totemToken = process.env.TOTEM_GPIO_TOKEN ?? '';
-
   private readonly baseUrl = process.env.VISTARA_API_BASE_URL?.replace(/\/$/, '') ?? '';
   private readonly tenantSlug = process.env.VISTARA_TENANT_SLUG ?? '';
   private readonly deviceKey = process.env.VISTARA_DEVICE_KEY ?? '';
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly totem: TotemService,
+  ) {}
 
   onModuleInit() {
     this.timer = setInterval(() => {
@@ -169,7 +169,7 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
       return;
     }
     if (this.scheduledOpens.has(eventId)) return;
-    if (!this.totemUrl) {
+    if (!this.totem.configured()) {
       if (!this.warnedMissingTotem) {
         this.warnedMissingTotem = true;
         this.logger.warn('TOTEM_GPIO_URL sin configurar -- no se puede abrir la pluma del carril de morosos');
@@ -184,24 +184,8 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`evento ${eventId}: pluma programada en ${delay}s (castigo)`);
     setTimeout(() => {
       this.scheduledOpens.delete(eventId);
-      this.pulseTotem(eventId).catch(() => undefined);
+      this.totem.pulse(`evento ${eventId}`).catch(() => undefined);
     }, delay * 1000);
-  }
-
-  private async pulseTotem(eventId: number) {
-    const headers: Record<string, string> = {};
-    if (this.totemToken) headers['X-Gpio-Token'] = this.totemToken;
-    try {
-      const r = await fetch(this.totemUrl, {
-        method: 'POST',
-        headers,
-        signal: AbortSignal.timeout(TOTEM_TIMEOUT_MS),
-      });
-      if (r.ok) this.logger.log(`evento ${eventId}: pluma abierta`);
-      else this.logger.error(`evento ${eventId}: el tótem respondió HTTP ${r.status}`);
-    } catch (err) {
-      this.logger.error(`evento ${eventId}: no se pudo abrir la pluma: ${(err as Error).message}`);
-    }
   }
 
   private async sendEvent(ev: {

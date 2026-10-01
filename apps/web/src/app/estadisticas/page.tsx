@@ -37,6 +37,9 @@ export default function Estadisticas() {
           <Link href="/estadisticas" className={`${styles.navLink} ${styles.navLinkActivo}`}>
             Estadísticas
           </Link>
+          <Link href="/contingencia" className={styles.navLink}>
+            Contingencia
+          </Link>
         </nav>
       </header>
 

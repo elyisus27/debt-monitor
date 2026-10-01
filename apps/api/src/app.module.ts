@@ -7,6 +7,7 @@ import { MediaModule } from './media/media.module';
 import { IngestModule } from './ingest/ingest.module';
 import { SyncVistaraModule } from './sync-vistara/sync-vistara.module';
 import { VistaraPhotosModule } from './vistara-photos/vistara-photos.module';
+import { ContingenciaModule } from './contingencia/contingencia.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { VistaraPhotosModule } from './vistara-photos/vistara-photos.module';
     MediaModule,
     SyncVistaraModule,
     VistaraPhotosModule,
+    ContingenciaModule,
     IngestModule,
   ],
 })

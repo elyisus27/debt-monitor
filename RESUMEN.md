@@ -231,6 +231,59 @@ piezas, cada una en su rama (`feat/vistara-guard-photos` aquí,
 - `prisma db push` en `apps/api` (tabla nueva).
 - Rebuild + restart de `barrier-gateway` (no hay nada nuevo que instalar).
 
+## Bitácora de contingencia (2026-10-01) — código listo, falta desplegar
+
+Cuando se cae el internet de caseta, Vistara no responde: ni se registran visitas
+ni se abre la pluma. Ahora hay un módulo de respaldo **local** en
+**`http://192.168.196.9:3000/contingencia`** (misma URL de debt-monitor, enlace
+"Contingencia" en el menú):
+
+- **Login**, sin roles, con dos tipos de usuario:
+  - **Guardias:** usuario `caseta` con una **clave de 6 dígitos que cambia sola
+    cada semana** (lunes 00:00, hora de la PC de caseta), calculada a partir de
+    `CONTINGENCIA_MASTER_KEY` en `apps/api/.env`. Sin internet no hay acceso
+    remoto, así que el plan es por teléfono: el guardia avisa, tú buscas la semana
+    en tu lista y se la dictas. A lo mucho le sirve una semana; el lunes la sesión
+    se cierra sola y tiene que pedir la nueva.
+  - **Dueño/administrador:** `CONTINGENCIA_USERS=jesus:clave,admin:clave`, clave
+    fija que no vence.
+  - 5 intentos fallidos desde un equipo bloquean el login 10 min.
+  - **La lista de claves** sale de `pnpm claves` en `apps/api` (este año y los 4
+    siguientes; `pnpm claves 2031 2035` para más), con la MISMA master key que la
+    PC de caseta. Vive en un Sheets privado en el Drive del dueño. Si se filtra,
+    se cambia la master key en caseta y se genera una lista nueva.
+  - La pantalla muestra la semana vigente y la hora del equipo: si el reloj de la
+    PC se desajusta, la clave deja de coincidir con la lista.
+- **Registrar entrada** con los mismos campos que la bitácora de Vistara
+  (domicilio, a quién se avisa, visitante, tipo, vehicular/peatonal, placa,
+  paradas, notas), **registrar salida**, e histórico por día.
+- **La pluma solo se abre después de registrar** (botón en el panel de "Visita
+  registrada", se puede insistir; el panel se cierra solo 2 min después de usarlo),
+  igual que en Vistara. Va directo al tótem por la LAN (`TOTEM_GPIO_URL`, el mismo
+  del carril de morosos). La API también exige una visita activa.
+- **Apertura emergencia** (ambulancia/bomberos), con confirmación: abre sin
+  registro y deja una visita EMERGENCY a Administración, como en Vistara.
+- **Cada intento de abrir** queda en `contingency_barrier_opens` (quién, cuándo,
+  qué visita, si abrió) — para auditar a los guardias.
+- **Directorio local de domicilios y residentes** (con teléfonos), bajado de
+  Vistara cada 24 h (`DIRECTORY_REFRESH_HOURS`) por `GET /api/v1/caseta/directory`
+  (endpoint nuevo en Vistara, rama `feat/caseta-directory`). Cada descarga
+  reemplaza la copia completa; sin internet se conserva la última. La pantalla
+  dice qué tan vieja es (ámbar a las 48 h). Si nunca se ha bajado, el domicilio se
+  captura a mano.
+- **Sincronizar a Vistara: todavía no.** Las tablas ya traen las columnas
+  `vistara*` (mismo patrón que `access_events`) y los campos espejean `Visit`, así
+  que el sincronizador se agrega después sin migrar nada.
+
+**Para desplegar** (en este orden):
+1. Vistara: subir y desplegar `feat/caseta-directory`. Mientras no esté, el
+   directorio falla sin romper nada: el guardia captura el domicilio a mano.
+2. PC de caseta: `git pull`, `pnpm install`, en `apps/api`:
+   `pnpm prisma:push` (crea las tablas nuevas, no toca las existentes) y agregar a
+   `.env` `CONTINGENCIA_MASTER_KEY` (la misma con la que se generó la lista),
+   `CONTINGENCIA_USERS` y opcional `CONTINGENCIA_SECRET`.
+3. Recompilar `apps/api` y `apps/web` y reiniciar `debt-api` y `debt-web`.
+
 ## Fases que siguen (todavía no arrancan)
 
 - **Padrón y patrones** — cruzar auto↔casa↔NIP, detectar mal uso.
