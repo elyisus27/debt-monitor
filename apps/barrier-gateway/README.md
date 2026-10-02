@@ -10,7 +10,9 @@ antes (decisión del usuario, 2026-09-17).
 
 Función original: recibe la orden de "abrir la pluma" por **push directo** de la
 Vistara API y dispara el GPIO del **tótem CondoVive** localmente. Si el push no
-llega (túnel caído), un **poll de respaldo** cada ~20 s recoge la orden igual.
+llega (túnel caído), la pluma no abre y el guardia lo ve en la web. El poll de
+respaldo (`GET /barrier/poll`) se eliminó el 2026-10-02: mantenía despiertos a
+Neon y Cloud Run las 24 horas (ver `vistara/CLAUDE.md` § COSTOS).
 
 **El proceso en sí no expone ningún puerto a la LAN ni a internet.** El servidor
 escucha solo en `127.0.0.1` — es `cloudflared` (proceso aparte, con Cloudflare
@@ -31,29 +33,18 @@ solo-poll y por qué se reconsideró): `vistara-docs/docs/apertura-pluma-remota.
 Vistara Web (visitas / morosos)
   │  POST /barrier/open
   ▼
-Vistara API → BarrierCommand PENDING (TTL 30s)
+Vistara API → BarrierCommand (bitácora: DONE si abrió, FAILED si no)
   │
-  │  push síncrono, ~4 intentos ~1s aparte (BARRIER_PUSH_URL)
+  │  push síncrono, 3 intentos de 3s (BARRIER_PUSH_URL)
   ▼
 Cloudflare Tunnel (cloudflared, en esta PC) ──► este worker, POST /push (127.0.0.1)
   │                                              │
   │  { opened: true/false }                      ├─ anti-rebote (BARRIER_MIN_INTERVAL_MS)
   ◄──────────────────────────────────────────────┤
                                                   └─ POST al GPIO del tótem (192.168.196.1:3001)
-
-Si el push falla las 4 veces (túnel caído): el comando queda PENDING y lo recoge
-el poll de respaldo de este mismo worker:
-
-  GET /barrier/poll   (cada POLL_SECONDS, ~20s -- casi nunca debería encontrar nada)
-  ← { commands: [...] } y las marca DELIVERED
-  → mismo pulso al tótem + PATCH /barrier/commands/:id/ack { opened }  (best-effort)
 ```
 
-La cola es por tenant, no por device — un condominio, un carril de visitantes.
-El ack por `PATCH` solo aplica al camino de poll; el push confirma en su propia
-respuesta HTTP, sin necesidad de un ack aparte.
-
-Ante error de red al pollear: backoff exponencial hasta 60 s, luego reintenta.
+No hay cola ni ack: el push confirma en su propia respuesta HTTP.
 
 ## Fotos de visitas (2026-09-17)
 
@@ -96,22 +87,17 @@ Ver [`.env.example`](.env.example). Lo esencial:
 
 | Variable | |
 |---|---|
-| `VISTARA_API_BASE` | `https://vistara-api.condominioreserva.com/api/v1` (sin barra final) |
-| `VISTARA_TENANT_SLUG` | `la-reserva` |
-| `VISTARA_DEVICE_KEY` | key de cualquier device activo del tenant (solo autentica el poll de respaldo; sin config especial) |
-| `POLL_SECONDS` | `20` — poll de RESPALDO, solo entra si el push falla |
 | `TOTEM_GPIO_URL` | endpoint GPIO del tótem — el mismo que usa `lpr-caseta/src/totem_gpio.py` |
 | `BARRIER_MIN_INTERVAL_MS` | anti-rebote, `4000` |
 | `PUSH_PORT` | puerto local (`127.0.0.1`) donde escucha el servidor de push, `8787` |
-| `PUSH_TOKEN` | secreto compartido con `BARRIER_PUSH_TOKEN` del lado de Vistara. Vacío = TODO este servidor desactivado (pluma y fotos) |
+| `PUSH_TOKEN` | secreto compartido con `BARRIER_PUSH_TOKEN` del lado de Vistara. Obligatorio: sin él el proceso no arranca |
 | `API_BASE_URL` | `http://127.0.0.1:9100` — `apps/api` en esta misma PC, usado por las rutas de fotos |
 
 ## Log
 
 Una línea JSON por evento a stdout (`{ ts, outcome, ... }`):
 `push_listening` · `push_abierto` · `push_rechazado_rebote` · `push_totem_error` ·
-`push_error` · `push_desactivado` (pluma) — `abierto` · `rechazado_rebote` ·
-`totem_error` · `poll_error` · `ack_error` (poll de respaldo) — `capture_relayed` ·
+`push_error` (pluma) — `capture_relayed` ·
 `capture_rejected` · `capture_401` · `capture_api_error` (captura de fotos) ·
 `photo_served` · `photo_not_found` · `photo_401` · `photo_api_error` (servir foto).
 La bitácora de "quién abrió y por qué" vive en Vistara (el `actorUserId` y el audit
@@ -170,9 +156,6 @@ patrón NSSM que el resto de servicios de esta PC.
 
 ## Pendiente antes de producción
 
-- [ ] Poner en `.env` la key de un device del tenant (la del OCR de `lpr-caseta`
-      sirve, o crear una con `libs/prisma/scripts/create-device.ts`) — sigue haciendo
-      falta para el poll de respaldo.
 - [ ] Generar `PUSH_TOKEN` (cadena aleatoria larga) y ponerlo aquí Y en
       `BARRIER_PUSH_TOKEN` del lado de Vistara (Secret Manager de `vistara-api`).
 - [ ] Instalar `cloudflared`, crear el túnel `barrier-push`, apuntar
@@ -182,7 +165,7 @@ patrón NSSM que el resto de servicios de esta PC.
       (`curl -X POST http://192.168.196.1:3001/devices/gpio/<adb_device>`).
 - [ ] `pnpm --filter @debt-monitor/barrier-gateway build` + `node dist/main.js`
       contra la API real; probar el botón desde Vistara Web (módulo de visitas) y
-      confirmar en el log `push_abierto` (no `rechazado_rebote`/poll de respaldo).
+      confirmar en el log `push_abierto` (no `push_rechazado_rebote`).
 - [ ] `nssm install barrier-gateway` (auto-start) + `nssm install cloudflared`.
 
 ## Pendiente para fotos de visitas (aparte de lo de arriba)

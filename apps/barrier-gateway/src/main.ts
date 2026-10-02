@@ -23,24 +23,18 @@ function loadDotenv(): void {
 loadDotenv()
 
 // --- Config -------------------------------------------------------------------
-const VISTARA_API_BASE = (process.env.VISTARA_API_BASE ?? '').replace(/\/+$/, '')
-const TENANT_SLUG = process.env.VISTARA_TENANT_SLUG ?? ''
-const DEVICE_KEY = process.env.VISTARA_DEVICE_KEY ?? ''
-// Este poll ya NO es el camino normal -- es la red de seguridad para cuando el
-// push (abajo) no llega (túnel caído). Por eso el default subió de 2s a 20s: casi
-// nunca debería encontrar nada, así que espaciarlo no cuesta latencia real y sí
-// ahorra la mayoría de las consultas que antes mantenían despiertos a Neon/Cloud Run.
-const POLL_MS = Math.max(1, Number(process.env.POLL_SECONDS ?? 20)) * 1000
-const HTTP_TIMEOUT_MS = 10_000
-
-// --- Servidor de push (camino rápido) ------------------------------------------
+// --- Servidor de push (único camino) -------------------------------------------
+// Antes había además un poll de respaldo a Vistara (GET /barrier/poll, cada 2s y
+// luego 20s). Se eliminó el 2026-10-02 por decisión del usuario: el túnel ya es
+// confiable y ese poll mantenía despiertos a Neon y Cloud Run las 24 horas (ver
+// vistara/CLAUDE.md § COSTOS). Si el push no llega, la pluma no abre y el guardia
+// lo ve en la web y reintenta.
 // Vistara le pega directo a esto, vía un túnel Cloudflare (cloudflared) que corre
 // aparte en esta misma PC -- este proceso solo escucha en loopback, nunca en la
 // interfaz de red de la LAN. cloudflared es quien decide qué tráfico de internet
 // llega aquí (con Cloudflare Access de por medio); este servidor solo valida el
 // token compartido, sin abrir ningún puerto hacia la LAN ni hacia internet por su
-// cuenta. PUSH_TOKEN vacío = servidor de push desactivado (queda solo el poll,
-// comportamiento anterior a este cambio).
+// cuenta. PUSH_TOKEN es obligatorio: sin él este proceso no tendría nada que hacer.
 const PUSH_PORT = Number(process.env.PUSH_PORT ?? 8787)
 const PUSH_TOKEN = process.env.PUSH_TOKEN ?? ''
 
@@ -56,14 +50,7 @@ const RELAY_TIMEOUT_MS = 10_000
 // Anti-rebote: dos aperturas legítimas seguidas no tienen sentido y una ráfaga sí
 // es sospechosa. La pluma tarda varios segundos en su ciclo.
 const MIN_INTERVAL_MS = Number(process.env.BARRIER_MIN_INTERVAL_MS ?? 4000)
-const MAX_BACKOFF_MS = 60_000
-
-for (const [name, val] of Object.entries({
-  VISTARA_API_BASE,
-  VISTARA_TENANT_SLUG: TENANT_SLUG,
-  VISTARA_DEVICE_KEY: DEVICE_KEY,
-  TOTEM_GPIO_URL,
-})) {
+for (const [name, val] of Object.entries({ PUSH_TOKEN, TOTEM_GPIO_URL })) {
   if (!val) {
     console.error(`barrier-gateway: falta ${name} -- no arranco sin eso`)
     process.exit(1)
@@ -71,16 +58,10 @@ for (const [name, val] of Object.entries({
 }
 
 let lastOpenOkAt = 0
-let backoffMs = 0
 
 // --- Helpers -----------------------------------------------------------------
 function log(outcome: string, extra: Record<string, unknown> = {}): void {
   console.log(JSON.stringify({ ts: new Date().toISOString(), outcome, ...extra }))
-}
-
-const vistaraHeaders: Record<string, string> = {
-  'X-Tenant-Slug': TENANT_SLUG,
-  'X-Device-Key': DEVICE_KEY,
 }
 
 async function pulseTotem(): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -97,54 +78,6 @@ async function pulseTotem(): Promise<{ ok: true } | { ok: false; error: string }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
-}
-
-interface BarrierCommand {
-  id: string
-  reason: string | null
-}
-
-async function pollCommands(): Promise<BarrierCommand[]> {
-  const r = await fetch(`${VISTARA_API_BASE}/barrier/poll`, {
-    headers: vistaraHeaders,
-    signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
-  })
-  if (!r.ok) throw new Error(`poll HTTP ${r.status}`)
-  const body = (await r.json()) as { commands?: BarrierCommand[] }
-  return Array.isArray(body.commands) ? body.commands : []
-}
-
-// Ack best-effort: le dice a Vistara si la pluma abrió, para el feedback de la web.
-// Que falle el ack no cambia nada del lado físico -- solo se registra.
-async function ack(id: string, opened: boolean): Promise<void> {
-  try {
-    await fetch(`${VISTARA_API_BASE}/barrier/commands/${id}/ack`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json', ...vistaraHeaders },
-      body: JSON.stringify({ opened }),
-      signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
-    })
-  } catch (e) {
-    log('ack_error', { id, error: e instanceof Error ? e.message : String(e) })
-  }
-}
-
-async function handleCommand(cmd: BarrierCommand): Promise<void> {
-  const now = Date.now()
-  if (now - lastOpenOkAt < MIN_INTERVAL_MS) {
-    log('rechazado_rebote', { id: cmd.id, reason: cmd.reason })
-    await ack(cmd.id, false)
-    return
-  }
-  const result = await pulseTotem()
-  if (!result.ok) {
-    log('totem_error', { id: cmd.id, reason: cmd.reason, error: result.error })
-    await ack(cmd.id, false)
-    return
-  }
-  lastOpenOkAt = now
-  log('abierto', { id: cmd.id, reason: cmd.reason })
-  await ack(cmd.id, true)
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -168,11 +101,8 @@ function checkPushToken(req: IncomingMessage): boolean {
   return Boolean(PUSH_TOKEN) && req.headers['x-push-token'] === PUSH_TOKEN
 }
 
-// Mismo anti-rebote y mismo pulso que el camino de poll (`handleCommand`) --
-// comparten `lastOpenOkAt` a propósito: si el push ya abrió, un poll que
-// alcance a ver el mismo comando todavía PENDING (ventana angosta mientras
-// Vistara espera la respuesta del push) se rechaza como rebote en vez de
-// pulsar el tótem una segunda vez.
+// Anti-rebote: dos pulsos seguidos (ej. Vistara reintenta un push que sí llegó
+// pero cuya respuesta se perdió) no deben abrir dos veces.
 async function handlePushRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (!checkPushToken(req)) {
     log('push_401', {
@@ -293,10 +223,6 @@ async function handlePhoto(req: IncomingMessage, res: ServerResponse, path: stri
 }
 
 function startPushServer(): void {
-  if (!PUSH_TOKEN) {
-    log('push_desactivado', { reason: 'PUSH_TOKEN no configurado -- solo poll de respaldo' })
-    return
-  }
   const server = createServer((req, res) => {
     const path = (req.url ?? '').split('?')[0]
     const dispatch =
@@ -325,26 +251,5 @@ function startPushServer(): void {
   })
 }
 
-async function tick(): Promise<void> {
-  try {
-    const commands = await pollCommands()
-    backoffMs = 0
-    for (const cmd of commands) await handleCommand(cmd)
-  } catch (e) {
-    backoffMs = Math.min(backoffMs === 0 ? POLL_MS * 2 : backoffMs * 2, MAX_BACKOFF_MS)
-    log('poll_error', { error: e instanceof Error ? e.message : String(e), retryInMs: backoffMs })
-  }
-}
-
-async function main(): Promise<void> {
-  startPushServer()
-  console.log(
-    `barrier-gateway -> push (:${PUSH_PORT}) + poll de respaldo cada ${POLL_MS}ms -> ${VISTARA_API_BASE} -> ${TOTEM_GPIO_URL}`,
-  )
-  for (;;) {
-    await tick()
-    await new Promise((r) => setTimeout(r, backoffMs || POLL_MS))
-  }
-}
-
-void main()
+startPushServer()
+console.log(`barrier-gateway -> push (:${PUSH_PORT}) -> ${TOTEM_GPIO_URL}`)
