@@ -88,21 +88,7 @@
 .botonEmergencia:disabled,
 .botonPluma:disabled { opacity: 0.55; cursor: not-allowed; }
 
-/* — pestañas — */
-.pestanas { display: flex; gap: 4px; border-bottom: 1px solid var(--color-divider); }
-.pestanas button {
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px 14px;
-  color: var(--color-neutral-500);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-}
-.pestanas button[aria-pressed='true'] { color: var(--color-accent); border-bottom-color: var(--color-accent); }
+.subtitulo { font-size: 18px; }
 
 .columna { display: flex; flex-direction: column; gap: 14px; }
 
@@ -165,39 +151,6 @@
 .panelEncabezado h2,
 .panel h2 { font-size: 20px; }
 
-.sugerencias {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 4px;
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-md);
-}
-.sugerencias button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  font: inherit;
-  font-size: 14px;
-  color: var(--color-text);
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  text-align: left;
-}
-.sugerencias button:hover { background: color-mix(in srgb, var(--color-text) 8%, transparent); }
-
-.tagMoroso {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--color-alert-800);
-  color: var(--color-alert-200);
-}
-
 .avisoOk {
   padding: 12px;
   border-radius: var(--radius-md);
@@ -243,4 +196,14 @@
   .titulo { font-size: 22px; }
   .encabezadoDer { margin-left: 0; }
   .filtros .field { width: 100%; }
+}
+
+.textoAlerta {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-alert-900);
+  color: var(--color-alert-200);
+  box-shadow: inset 0 0 0 1px var(--color-alert);
+  font-size: 13px;
 }

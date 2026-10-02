@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import styles from '../../app/contingencia/page.module.css';
 import {
   ROLE_LABELS,
@@ -28,18 +28,6 @@ const FORM_VACIO: NuevaVisita = {
   stopCount: '',
 };
 
-// Misma normalización de domicilio que Vistara (por segmentos, sin ceros a la
-// izquierda): "972-5", "972 05" y "972-05" son el mismo domicilio.
-function normalizar(raw: string): string {
-  return raw
-    .trim()
-    .toUpperCase()
-    .split(/[^A-Z0-9]+/)
-    .filter(Boolean)
-    .map((seg) => (/^\d+$/.test(seg) ? String(parseInt(seg, 10)) : seg))
-    .join('-');
-}
-
 type EstadoPluma = 'idle' | 'sending' | 'sent' | 'error';
 
 export function FormularioEntrada({
@@ -54,7 +42,8 @@ export function FormularioEntrada({
   onRegistrada: () => void;
 }) {
   const [form, setForm] = useState<NuevaVisita>(FORM_VACIO);
-  const [busquedaDomicilio, setBusquedaDomicilio] = useState('');
+  // Solo para el modo sin directorio (nunca se ha bajado de Vistara): domicilio a mano.
+  const [domicilioManual, setDomicilioManual] = useState('');
   const [domicilio, setDomicilio] = useState<Domicilio | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,15 +56,6 @@ export function FormularioEntrada({
 
   const sinDirectorio = directorio.length === 0;
 
-  const sugerencias = useMemo(() => {
-    const q = normalizar(busquedaDomicilio);
-    if (!q || domicilio) return [];
-    const crudo = busquedaDomicilio.trim().toUpperCase();
-    return directorio
-      .filter((d) => normalizar(d.label).startsWith(q) || d.label.toUpperCase().includes(crudo))
-      .slice(0, 8);
-  }, [busquedaDomicilio, directorio, domicilio]);
-
   useEffect(() => {
     if (!registrada || !plumaUsada) return;
     const t = setTimeout(onCerrar, PANEL_IDLE_MS);
@@ -86,11 +66,11 @@ export function FormularioEntrada({
     setForm((f) => ({ ...f, [campo]: valor }));
   }
 
-  function elegirDomicilio(d: Domicilio) {
+  function elegirDomicilio(id: string) {
+    const d = directorio.find((u) => u.id === id) ?? null;
     setDomicilio(d);
-    setBusquedaDomicilio(d.label);
     // Si solo hay un residente, se preselecciona (a quien se le avisa).
-    cambiar('residentId', d.residents.length === 1 ? d.residents[0].id : undefined);
+    cambiar('residentId', d?.residents.length === 1 ? d.residents[0].id : undefined);
   }
 
   async function guardar(e: React.FormEvent) {
@@ -98,7 +78,7 @@ export function FormularioEntrada({
     if (guardando) return;
     setError(null);
     if (!sinDirectorio && !domicilio) {
-      setError('Elige el domicilio de la lista');
+      setError('Elige el domicilio');
       return;
     }
     setGuardando(true);
@@ -106,7 +86,7 @@ export function FormularioEntrada({
       const visita = await registrarVisita(token, {
         ...form,
         unitId: domicilio?.id,
-        domicileCode: sinDirectorio ? busquedaDomicilio : undefined,
+        domicileCode: sinDirectorio ? domicilioManual : undefined,
         plate: form.accessType === 'VEHICLE' ? form.plate : undefined,
         stopCount: STOP_COUNT_TYPES.has(form.visitType) ? form.stopCount : undefined,
       });
@@ -138,7 +118,7 @@ export function FormularioEntrada({
 
   function nuevaEntrada() {
     setForm(FORM_VACIO);
-    setBusquedaDomicilio('');
+    setDomicilioManual('');
     setDomicilio(null);
     setRegistrada(null);
     setPluma('idle');
@@ -212,33 +192,40 @@ export function FormularioEntrada({
           <form className={styles.columna} onSubmit={guardar}>
             <div className="field">
               <label htmlFor="domicilio">Domicilio</label>
-              <input
-                id="domicilio"
-                className="input"
-                autoComplete="off"
-                autoFocus
-                placeholder={sinDirectorio ? 'Ej. 972-05' : 'Escribe para buscar, ej. 972-05'}
-                value={busquedaDomicilio}
-                onChange={(e) => {
-                  setBusquedaDomicilio(e.target.value);
-                  setDomicilio(null);
-                  cambiar('residentId', undefined);
-                }}
-              />
-              {sugerencias.length > 0 && (
-                <ul className={styles.sugerencias}>
-                  {sugerencias.map((d) => (
-                    <li key={d.id}>
-                      <button type="button" onClick={() => elegirDomicilio(d)}>
-                        <span className="mono">{d.label}</span>
-                        {d.isDelinquent && <span className={styles.tagMoroso}>Adeudo</span>}
-                      </button>
-                    </li>
+              {sinDirectorio ? (
+                <>
+                  <input
+                    id="domicilio"
+                    className="input"
+                    autoComplete="off"
+                    autoFocus
+                    placeholder="Ej. 972-05"
+                    value={domicilioManual}
+                    onChange={(e) => setDomicilioManual(e.target.value)}
+                  />
+                  <p className={styles.textoAviso}>
+                    El directorio de domicilios no se ha descargado: escribe el domicilio a mano.
+                  </p>
+                </>
+              ) : (
+                <select
+                  id="domicilio"
+                  className="input"
+                  autoFocus
+                  value={domicilio?.id ?? ''}
+                  onChange={(e) => elegirDomicilio(e.target.value)}
+                >
+                  <option value="">— Elige el domicilio —</option>
+                  {directorio.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.label}
+                      {d.isDelinquent ? ' · con adeudo' : ''}
+                    </option>
                   ))}
-                </ul>
+                </select>
               )}
               {domicilio?.isDelinquent && (
-                <p className={styles.textoAviso}>Este domicilio tiene adeudo vencido en Vistara.</p>
+                <p className={styles.textoAlerta}>Este domicilio tiene adeudo vencido en Vistara.</p>
               )}
             </div>
 
@@ -255,7 +242,6 @@ export function FormularioEntrada({
                   {domicilio.residents.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.name} · {ROLE_LABELS[r.role] ?? r.role}
-                      {r.phone ? ` · ${r.phone}` : ''}
                     </option>
                   ))}
                 </select>

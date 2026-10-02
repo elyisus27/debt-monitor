@@ -14,14 +14,12 @@ import {
   listarVisitas,
   obtenerDirectorio,
   obtenerEstado,
-  registrarSalida,
   type Domicilio,
   type Estado,
   type Sesion,
   type VisitaContingencia,
 } from '../../lib/contingencia';
 
-const ACTIVAS_POLL_MS = 15_000;
 // Directorio más viejo que esto se marca en ámbar: los teléfonos pueden ya no servir.
 const DIRECTORIO_VIEJO_MS = 48 * 3600_000;
 
@@ -144,7 +142,6 @@ function Bitacora({ sesion, onSalir }: { sesion: Sesion; onSalir: (motivo?: stri
   const [estado, setEstado] = useState<Estado | null>(null);
   const [directorio, setDirectorio] = useState<Domicilio[]>([]);
   const [formAbierto, setFormAbierto] = useState(false);
-  const [pestana, setPestana] = useState<'activas' | 'historico'>('activas');
   const [refresco, setRefresco] = useState(0);
   const [actualizandoDir, setActualizandoDir] = useState(false);
   const [avisoDir, setAvisoDir] = useState<string | null>(null);
@@ -246,20 +243,8 @@ function Bitacora({ sesion, onSalir }: { sesion: Sesion; onSalir: (motivo?: stri
         </button>
       </div>
 
-      <nav className={styles.pestanas}>
-        <button type="button" aria-pressed={pestana === 'activas'} onClick={() => setPestana('activas')}>
-          Activas
-        </button>
-        <button type="button" aria-pressed={pestana === 'historico'} onClick={() => setPestana('historico')}>
-          Histórico
-        </button>
-      </nav>
-
-      {pestana === 'activas' ? (
-        <Activas token={token} refresco={refresco} onError={manejarError} />
-      ) : (
-        <Historico token={token} refresco={refresco} onError={manejarError} />
-      )}
+      <h2 className={styles.subtitulo}>Entradas registradas</h2>
+      <Historico token={token} refresco={refresco} onError={manejarError} />
 
       {formAbierto && (
         <FormularioEntrada
@@ -279,51 +264,6 @@ function Bitacora({ sesion, onSalir }: { sesion: Sesion; onSalir: (motivo?: stri
         />
       )}
     </main>
-  );
-}
-
-function Activas({ token, refresco, onError }: { token: string; refresco: number; onError: (e: unknown) => void }) {
-  const [visitas, setVisitas] = useState<VisitaContingencia[]>([]);
-  const [saliendo, setSaliendo] = useState<number | null>(null);
-
-  const cargar = useCallback(async () => {
-    try {
-      setVisitas((await listarVisitas(token, { status: 'ACTIVE' })).visitas);
-    } catch (err) {
-      onError(err);
-    }
-  }, [token, onError]);
-
-  useEffect(() => {
-    cargar();
-    const t = setInterval(cargar, ACTIVAS_POLL_MS);
-    return () => clearInterval(t);
-  }, [cargar, refresco]);
-
-  async function salida(v: VisitaContingencia) {
-    if (!confirm(`¿Registrar la salida de ${v.visitorName} (${v.domicileCode})?`)) return;
-    setSaliendo(v.id);
-    try {
-      await registrarSalida(token, v.id);
-      await cargar();
-    } catch (err) {
-      onError(err);
-      alert(err instanceof Error ? err.message : 'No se pudo registrar la salida');
-    } finally {
-      setSaliendo(null);
-    }
-  }
-
-  if (visitas.length === 0) return <p className="text-muted">Sin visitas activas.</p>;
-  return (
-    <TablaVisitas
-      visitas={visitas}
-      accion={(v) => (
-        <button type="button" className="btn btn-secondary" disabled={saliendo === v.id} onClick={() => salida(v)}>
-          {saliendo === v.id ? 'Registrando…' : 'Registrar salida'}
-        </button>
-      )}
-    />
   );
 }
 
@@ -377,7 +317,7 @@ function Historico({ token, refresco, onError }: { token: string; refresco: numb
         <span className="text-muted">{datos ? `${datos.total} registro(s)` : '…'}</span>
       </div>
       {datos && datos.visitas.length > 0 ? (
-        <TablaVisitas visitas={datos.visitas} conDetalle />
+        <TablaVisitas visitas={datos.visitas} />
       ) : (
         <p className="text-muted">Sin registros.</p>
       )}
@@ -403,15 +343,7 @@ function Historico({ token, refresco, onError }: { token: string; refresco: numb
   );
 }
 
-function TablaVisitas({
-  visitas,
-  accion,
-  conDetalle,
-}: {
-  visitas: VisitaContingencia[];
-  accion?: (v: VisitaContingencia) => React.ReactNode;
-  conDetalle?: boolean;
-}) {
+function TablaVisitas({ visitas }: { visitas: VisitaContingencia[] }) {
   return (
     <div className={styles.tablaCaja}>
       <table className={styles.tabla}>
@@ -422,11 +354,10 @@ function TablaVisitas({
             <th>Visitante</th>
             <th>Tipo</th>
             <th>Placa</th>
-            {conDetalle && <th>Salida</th>}
-            {conDetalle && <th>Aperturas</th>}
-            {conDetalle && <th>Registró</th>}
-            {conDetalle && <th>Vistara</th>}
-            {accion && <th />}
+            <th>Se avisó a</th>
+            <th>Aperturas</th>
+            <th>Registró</th>
+            <th>Vistara</th>
           </tr>
         </thead>
         <tbody>
@@ -443,15 +374,12 @@ function TablaVisitas({
                 {v.accessType === 'PEDESTRIAN' && <span className="text-muted"> · peatonal</span>}
               </td>
               <td className="mono">{v.plate ?? '—'}</td>
-              {conDetalle && <td>{v.status === 'EXITED' ? fechaHora(v.exitedAt) : 'Adentro'}</td>}
-              {conDetalle && (
-                <td>
-                  {!v._count?.barrierOpens ? '—' : v._count.barrierOpens === 1 ? '1 vez' : `${v._count.barrierOpens} veces`}
-                </td>
-              )}
-              {conDetalle && <td>{v.registeredBy}</td>}
-              {conDetalle && <td>{v.vistaraStatus === 'sent' ? 'Sincronizada' : 'Pendiente'}</td>}
-              {accion && <td>{accion(v)}</td>}
+              <td>{v.residentName ?? '—'}</td>
+              <td>
+                {!v._count?.barrierOpens ? '—' : v._count.barrierOpens === 1 ? '1 vez' : `${v._count.barrierOpens} veces`}
+              </td>
+              <td>{v.registeredBy}</td>
+              <td>{v.vistaraStatus === 'sent' ? 'Sincronizada' : 'Pendiente'}</td>
             </tr>
           ))}
         </tbody>
