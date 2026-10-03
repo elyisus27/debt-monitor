@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TotemService } from '../totem/totem.service';
+import { RelayService } from '../relay/relay.service';
 import { basename } from 'node:path';
 
 // Conexión con Vistara -- manda cada cruce de ENTRADA por el teclado de morosos
@@ -71,6 +72,7 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly totem: TotemService,
+    private readonly relay: RelayService,
   ) {}
 
   onModuleInit() {
@@ -139,6 +141,8 @@ export class SyncVistaraService implements OnModuleInit, OnModuleDestroy {
             where: { id: ev.id },
             data: { vistaraStatus: 'sent', vistaraSentAt: new Date().toISOString(), vistaraError: null },
           });
+          // Vistara ya tiene la tarjeta: avisar a la pantalla de caseta (SSE local).
+          this.relay.notify();
         } else {
           const attempts = ev.vistaraAttempts + 1;
           const backoff = nextBackoffSeconds(attempts);

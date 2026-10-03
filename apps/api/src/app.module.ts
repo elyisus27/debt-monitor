@@ -8,6 +8,7 @@ import { IngestModule } from './ingest/ingest.module';
 import { SyncVistaraModule } from './sync-vistara/sync-vistara.module';
 import { VistaraPhotosModule } from './vistara-photos/vistara-photos.module';
 import { ContingenciaModule } from './contingencia/contingencia.module';
+import { RelayModule } from './relay/relay.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ContingenciaModule } from './contingencia/contingencia.module';
     SyncVistaraModule,
     VistaraPhotosModule,
     ContingenciaModule,
+    RelayModule,
     IngestModule,
   ],
 })

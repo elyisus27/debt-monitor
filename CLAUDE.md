@@ -31,3 +31,18 @@ arranca de cero a propósito.
 ## Estado
 
 Proyecto recién creado, sin código todavía.
+
+## Relay local de avisos para Vistara (2026-10-02)
+
+`apps/api/src/relay/`. La pestaña "Placas no reconocidas" de Vistara en la PC de caseta
+se suscribe por SSE a `http://localhost:9100/api/relay/events` y solo pide datos a la
+nube cuando llega un aviso (sin carros, Neon y Cloud Run se duermen). Detalle en
+`vistara/CLAUDE.md` § COSTOS punto 2.
+
+- `GET /api/relay/events`: SSE sin datos (`{"kind":"gate"}` + heartbeat cada 25 s).
+- `POST /api/relay/notify`: solo desde loopback (cualquier otra IP recibe 403). Varios
+  avisos en 1 s se juntan en uno.
+- Avisan: `sync-vistara.service.ts` (tras cada cruce del teclado aceptado por Vistara) y
+  `lpr-caseta` (`src/vistara.py`, tras cada placa aceptada; `RELAY_NOTIFY_URL`).
+- En Vistara se activa en Configuración → Vigilancia → "Avisos en vivo en la PC de
+  caseta" con `http://localhost:9100`.
